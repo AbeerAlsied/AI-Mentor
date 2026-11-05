@@ -1,25 +1,22 @@
-# AI-Mentor
-AI Mentor هو مساعد ذكي متخصص في الذكاء الاصطناعي، يتيح للمستخدمين طرح الأسئلة والتعلم واكتشاف تقنيات الذكاء الاصطناعي، مع إمكانية حفظ المعلومات والاستفادة منها في المحادثات اللاحقة. يهدف إلى تبسيط المعرفة وتطوير مهارات المستخدم
-
-
-# 🤖 AI Mentor
+# AI Mentor 🤖
 
 ### Your Personal Artificial Intelligence Expert
 
-AI Mentor is an intelligent educational assistant
-specialized in Artificial Intelligence.
+AI Mentor is an intelligent assistant specialized in Artificial Intelligence.
 
 ## Features
 
 - AI-powered conversations
+- Arabic and English support
+- Sudanese Arabic dialect understanding
+- Colloquial Arabic understanding
 - Machine Learning explanations
 - Deep Learning assistance
-- Python AI programming support
+- Python AI programming
 - Personal Knowledge Library
 - PDF document reading
 - Knowledge retrieval
 - Conversation history
-- Arabic and English support
 
 ## Technologies
 
@@ -31,11 +28,9 @@ specialized in Artificial Intelligence.
 
 ## Installation
 
-Install dependencies:
-
 pip install -r requirements.txt
 
-Run the application:
+## Run
 
 streamlit run app.py
 
@@ -45,6 +40,10 @@ Add your OpenAI API key to Streamlit Secrets:
 
 OPENAI_API_KEY = "your_api_key"
 
-## Project
+## Developer
 
-AI Mentor - Version 1.0
+Abeer Alsied
+
+## Version
+
+1.1
