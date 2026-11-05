@@ -110,7 +110,8 @@ def get_connection():
 
     conn = sqlite3.connect(
         DB_NAME,
-        check_same_thread=False
+        check_same_thread=False,
+        timeout=30
     )
 
     conn.execute("""
@@ -165,6 +166,11 @@ if "page" not in st.session_state:
 if "feedback" not in st.session_state:
 
     st.session_state.feedback = {}
+
+
+if "pending_question" not in st.session_state:
+
+    st.session_state.pending_question = None
 
 
 SESSION_ID = st.session_state.session_id
@@ -245,21 +251,6 @@ def save_message(role, message):
     conn.commit()
 
 
-def get_conversation_history():
-
-    cursor = conn.execute(
-        """
-        SELECT role, message
-        FROM conversations
-        WHERE session_id = ?
-        ORDER BY id ASC
-        """,
-        (SESSION_ID,)
-    )
-
-    return cursor.fetchall()
-
-
 # ==========================================
 # 6. KNOWLEDGE SEARCH
 # ==========================================
@@ -330,7 +321,7 @@ def extract_pdf_text(pdf_file):
 
 
 # ==========================================
-# 8. OPENAI CLIENT
+# 8. OPENAI API
 # ==========================================
 
 def get_api_key():
@@ -341,14 +332,171 @@ def get_api_key():
         return key
 
     try:
+
         return st.secrets["OPENAI_API_KEY"]
 
     except Exception:
+
         return ""
 
 
 api_key = get_api_key()
 
+
+# ==========================================
+# 9. AI SYSTEM PROMPT
+# ==========================================
+
+SYSTEM_PROMPT = """
+You are AI Mentor, an intelligent educational assistant.
+
+YOUR IDENTITY:
+
+You are a professional AI assistant specialized ONLY
+in Artificial Intelligence and closely related fields.
+
+YOUR SPECIALIZATIONS:
+
+- Artificial Intelligence
+- Machine Learning
+- Deep Learning
+- Neural Networks
+- Generative AI
+- Natural Language Processing
+- Computer Vision
+- Python for AI
+- AI Programming
+- Data Science related to AI
+- AI Tools and Applications
+- AI Research
+- AI Projects
+- AI Ethics
+- Large Language Models
+
+==========================================
+LANGUAGE AND DIALECT UNDERSTANDING
+==========================================
+
+You must support Arabic and English fluently.
+
+1. Automatically identify the language used by the user.
+
+2. Reply in the same language used by the user.
+
+3. Understand Modern Standard Arabic (Fusha).
+
+4. Understand informal Arabic and colloquial language.
+
+5. Understand Sudanese Arabic specifically,
+including expressions such as:
+
+- يا زول
+- وريني
+- شنو
+- كيف
+- داير
+- عايز
+- عايزة
+- ما عارف
+- شديد
+- كويس
+- أها
+- هسي
+- كده
+- مافي
+- زاتو
+
+6. Understand Egyptian, Gulf, Levantine,
+and North African Arabic dialects.
+
+7. Understand mixed Arabic-English messages.
+
+8. Never force the user to write in formal Arabic.
+
+9. If the user writes in Sudanese Arabic,
+respond naturally in clear and friendly Sudanese Arabic.
+
+10. If the user writes in English,
+respond in clear and natural English.
+
+11. Preserve technical AI terms in English
+when appropriate, and explain them simply.
+
+12. Do not criticize the user's spelling,
+grammar, or dialect.
+
+13. Understand common typing mistakes
+and informal expressions using context.
+
+==========================================
+TEACHING STYLE
+==========================================
+
+1. Explain complex AI concepts simply.
+
+2. Adapt explanations to the user's level.
+
+3. Provide practical examples.
+
+4. Explain technical terms clearly.
+
+5. Help users understand AI programming.
+
+6. Write, explain, and debug AI-related code.
+
+7. Be patient, friendly, and educational.
+
+8. Avoid unnecessarily complicated explanations.
+
+==========================================
+SPECIALIZATION RULES
+==========================================
+
+1. Only answer questions related to Artificial
+Intelligence and closely related technical topics.
+
+2. If a question is completely unrelated to AI,
+politely explain that your specialization is AI.
+
+3. Do not reject general programming questions
+when they are clearly connected to AI projects.
+
+4. Never pretend to know something you do not know.
+
+5. Do not invent technical facts or references.
+
+==========================================
+PERSONAL KNOWLEDGE
+==========================================
+
+The user may provide personal information
+through the Knowledge Library.
+
+Use relevant information when answering questions.
+
+Treat saved information as reference material,
+not as guaranteed truth.
+
+If information is missing, explain that clearly.
+
+Never claim that you have permanently retrained
+your underlying AI model.
+
+Saved information is stored in a knowledge database
+and can be retrieved when relevant.
+
+==========================================
+USER KNOWLEDGE LIBRARY
+==========================================
+
+Use the following information when relevant:
+
+"""
+
+
+# ==========================================
+# 10. AI RESPONSE FUNCTION
+# ==========================================
 
 def get_ai_response(question, history):
 
@@ -364,7 +512,8 @@ def get_ai_response(question, history):
 
         client = OpenAI(
             api_key=api_key,
-            timeout=60.0
+            timeout=60.0,
+            max_retries=2
         )
 
         knowledge_results = search_knowledge(
@@ -383,68 +532,10 @@ def get_ai_response(question, history):
                 ]
             )
 
-        system_prompt = """
-You are AI Mentor, a specialized artificial
-intelligence educational assistant.
-
-YOUR IDENTITY:
-You are an expert assistant specializing ONLY
-in Artificial Intelligence and its related fields.
-
-YOUR SPECIALIZATIONS:
-- Artificial Intelligence
-- Machine Learning
-- Deep Learning
-- Neural Networks
-- Generative AI
-- Natural Language Processing
-- Computer Vision
-- Python for AI
-- AI programming
-- Data Science related to AI
-- AI tools and applications
-- AI research and projects
-- AI ethics and responsible AI
-
-IMPORTANT RULES:
-
-1. Only answer questions related to AI and
-   closely related technical topics.
-
-2. If the user asks about an unrelated topic,
-   politely explain that you specialize in
-   Artificial Intelligence.
-
-3. Never pretend that you know something
-   that you do not know.
-
-4. Explain difficult concepts in simple language
-   when the user is a beginner.
-
-5. You can write, explain, and debug AI-related
-   programming code.
-
-6. Support Arabic and English.
-   Reply in the language used by the user.
-
-7. Use clear headings and examples when useful.
-
-8. The knowledge provided below comes from
-   the user's personal knowledge library.
-   Use it when relevant, but do not assume
-   it is always correct.
-
-9. If the supplied knowledge does not answer
-   the question, use your existing AI knowledge.
-
-10. Never claim that you have permanently
-    retrained your underlying AI model.
-    Explain that saved information is stored
-    in a knowledge database.
-
-USER KNOWLEDGE LIBRARY:
-
-""" + knowledge_context
+        system_prompt = (
+            SYSTEM_PROMPT
+            + knowledge_context
+        )
 
         messages = [
             {
@@ -453,11 +544,12 @@ USER KNOWLEDGE LIBRARY:
             }
         ]
 
-        # Keep recent conversation context
-
         for item in history[-12:]:
 
-            messages.append(item)
+            messages.append({
+                "role": item["role"],
+                "content": item["content"]
+            })
 
         messages.append({
             "role": "user",
@@ -465,27 +557,32 @@ USER KNOWLEDGE LIBRARY:
         })
 
         response = client.chat.completions.create(
+
             model=MODEL_NAME,
+
             messages=messages,
+
             temperature=0.5,
+
             max_tokens=2000
+
         )
 
         answer = response.choices[0].message.content
 
         return answer or "لم أتمكن من إنشاء إجابة."
 
-    except Exception as error:
+    except Exception:
 
         return (
             "حدث خطأ أثناء الاتصال بخدمة الذكاء الاصطناعي.\n\n"
-            "يرجى المحاولة مرة أخرى.\n\n"
-            f"تفاصيل الخطأ: {str(error)[:300]}"
+            "يرجى التأكد من صحة مفتاح API "
+            "واتصال الإنترنت، ثم المحاولة مرة أخرى."
         )
 
 
 # ==========================================
-# 9. SIDEBAR
+# 11. SIDEBAR
 # ==========================================
 
 with st.sidebar:
@@ -495,6 +592,7 @@ with st.sidebar:
         <h1 style='text-align:center;color:#8dafff;'>
         🤖 AI Mentor
         </h1>
+
         <p style='text-align:center;color:#aab8d0;'>
         Your Personal AI Expert
         </p>
@@ -506,27 +604,46 @@ with st.sidebar:
 
     st.markdown("### 🧭 Navigation")
 
-    if st.button("💬 AI Chat", use_container_width=True):
+    if st.button(
+        "💬 AI Chat",
+        use_container_width=True
+    ):
 
         st.session_state.page = "Chat"
+        st.rerun()
 
-    if st.button("🧠 Knowledge Library", use_container_width=True):
+    if st.button(
+        "🧠 Knowledge Library",
+        use_container_width=True
+    ):
 
         st.session_state.page = "Library"
+        st.rerun()
 
-    if st.button("📚 My Learning", use_container_width=True):
+    if st.button(
+        "📚 My Learning",
+        use_container_width=True
+    ):
 
         st.session_state.page = "Learning"
+        st.rerun()
 
-    if st.button("ℹ️ About AI Mentor", use_container_width=True):
+    if st.button(
+        "ℹ️ About AI Mentor",
+        use_container_width=True
+    ):
 
         st.session_state.page = "About"
+        st.rerun()
 
     st.divider()
 
     st.markdown("### ⚙️ Settings")
 
-    if st.button("🗑️ New Conversation", use_container_width=True):
+    if st.button(
+        "🗑️ New Conversation",
+        use_container_width=True
+    ):
 
         st.session_state.messages = []
 
@@ -545,8 +662,8 @@ with st.sidebar:
     st.markdown(
         """
         <p class='small-text' style='text-align:center;'>
-        AI Mentor v1.0<br>
-        Specialized AI Assistant
+        AI Mentor v1.1<br>
+        Arabic & English Support
         </p>
         """,
         unsafe_allow_html=True
@@ -554,7 +671,7 @@ with st.sidebar:
 
 
 # ==========================================
-# 10. HOME HEADER
+# 12. MAIN HEADER
 # ==========================================
 
 st.markdown(
@@ -571,6 +688,10 @@ st.markdown(
         Ask. Learn. Explore. Grow.
         </p>
 
+        <p>
+        العربية | English | Arabic Dialects
+        </p>
+
     </div>
     """,
     unsafe_allow_html=True
@@ -578,7 +699,7 @@ st.markdown(
 
 
 # ==========================================
-# 11. CHAT PAGE
+# 13. CHAT PAGE
 # ==========================================
 
 if st.session_state.page == "Chat":
@@ -586,10 +707,8 @@ if st.session_state.page == "Chat":
     st.subheader("💬 AI Assistant")
 
     st.caption(
-        "Ask anything about Artificial Intelligence."
+        "اسأل عن الذكاء الاصطناعي بأي لغة أو لهجة."
     )
-
-    # Suggested questions
 
     st.markdown("### ✨ Explore AI")
 
@@ -609,12 +728,12 @@ if st.session_state.page == "Chat":
     with col2:
 
         if st.button(
-            "💻 Learn Machine Learning",
+            "💻 تعلم Machine Learning",
             use_container_width=True
         ):
 
             st.session_state.pending_question = (
-                "Explain Machine Learning for beginners."
+                "اشرح لي Machine Learning بطريقة بسيطة."
             )
 
     with col3:
@@ -630,7 +749,7 @@ if st.session_state.page == "Chat":
 
     st.divider()
 
-    # Display conversation
+    # Display messages
 
     for index, message in enumerate(
         st.session_state.messages
@@ -642,30 +761,24 @@ if st.session_state.page == "Chat":
 
             if message["role"] == "assistant":
 
-                rating = st.feedback(
+                st.feedback(
                     "thumbs",
                     key=f"rating_{index}"
                 )
 
-                if rating is not None:
-
-                    st.session_state.feedback[index] = rating
-
     # User input
 
     question = st.chat_input(
-        "Ask your AI question here..."
+        "اكتب سؤالك هنا... Ask anything about AI"
     )
 
-    if "pending_question" in st.session_state:
+    if st.session_state.pending_question:
 
-        question = st.session_state.pop(
-            "pending_question"
-        )
+        question = st.session_state.pending_question
+
+        st.session_state.pending_question = None
 
     if question:
-
-        # Show user message
 
         st.session_state.messages.append({
             "role": "user",
@@ -678,11 +791,9 @@ if st.session_state.page == "Chat":
 
             st.markdown(question)
 
-        # Generate response
-
         with st.chat_message("assistant"):
 
-            with st.spinner("AI Mentor is thinking..."):
+            with st.spinner("AI Mentor is thinking... 🤖"):
 
                 answer = get_ai_response(
                     question,
@@ -702,7 +813,7 @@ if st.session_state.page == "Chat":
 
 
 # ==========================================
-# 12. KNOWLEDGE LIBRARY PAGE
+# 14. KNOWLEDGE LIBRARY
 # ==========================================
 
 elif st.session_state.page == "Library":
@@ -710,8 +821,8 @@ elif st.session_state.page == "Library":
     st.subheader("🧠 Knowledge Library")
 
     st.write(
-        "Add new information and allow AI Mentor "
-        "to retrieve it during future conversations."
+        "أضيفي معلومات جديدة ليتمكن AI Mentor "
+        "من الرجوع إليها عند الإجابة."
     )
 
     tab1, tab2 = st.tabs([
@@ -784,10 +895,10 @@ elif st.session_state.page == "Library":
                             "No readable text found in this PDF."
                         )
 
-                except Exception as error:
+                except Exception:
 
                     st.error(
-                        f"Could not read PDF: {error}"
+                        "Could not read this PDF."
                     )
 
     st.divider()
@@ -827,7 +938,7 @@ elif st.session_state.page == "Library":
 
 
 # ==========================================
-# 13. LEARNING PAGE
+# 15. LEARNING PAGE
 # ==========================================
 
 elif st.session_state.page == "Learning":
@@ -883,7 +994,7 @@ elif st.session_state.page == "Learning":
 
 
 # ==========================================
-# 14. ABOUT PAGE
+# 16. ABOUT PAGE
 # ==========================================
 
 elif st.session_state.page == "About":
@@ -911,13 +1022,27 @@ elif st.session_state.page == "About":
     st.markdown("### ⭐ Main Features")
 
     features = [
+
         "AI-powered conversations",
-        "Personal knowledge library",
+
+        "Arabic and English support",
+
+        "Arabic dialect understanding",
+
+        "Sudanese Arabic support",
+
+        "Personal Knowledge Library",
+
         "PDF document reading",
+
         "Knowledge retrieval",
+
         "AI programming assistance",
+
         "Learning resources",
+
         "Conversation history"
+
     ]
 
     for feature in features:
@@ -934,12 +1059,12 @@ elif st.session_state.page == "About":
     st.divider()
 
     st.caption(
-        "AI Mentor | Version 1.0"
+        "AI Mentor | Version 1.1"
     )
 
 
 # ==========================================
-# 15. FOOTER
+# 17. FOOTER
 # ==========================================
 
 st.divider()
@@ -952,7 +1077,7 @@ st.markdown(
 
     <br>
 
-    Powered by Artificial Intelligence
+    Arabic & English | Powered by AI
 
     </p>
     """,
