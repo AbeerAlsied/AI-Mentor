@@ -1,5 +1,4 @@
 import os
-import re
 import sqlite3
 from datetime import datetime
 
@@ -19,7 +18,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-DB_NAME = "ai_mentor.db"
+# قاعدة بيانات جديدة لتجنب تعارض الجداول القديمة
+DB_NAME = os.path.join("/tmp", "ai_mentor_v2.db")
 MODEL_NAME = "gpt-4o-mini"
 
 
@@ -35,11 +35,8 @@ LANGUAGES = {
 if "language" not in st.session_state:
     st.session_state.language = "ar"
 
-lang = st.session_state.language
-
 TEXT = {
     "ar": {
-        "title": "AI Mentor",
         "subtitle": "مساعدك الذكي للتعلم والمعرفة",
         "home": "الرئيسية",
         "chat": "المحادثة الذكية",
@@ -50,37 +47,33 @@ TEXT = {
         "welcome_text": "منصتك الذكية للتعلم والإجابة عن الأسئلة وفهم المعلومات.",
         "start": "ابدأ المحادثة",
         "question": "اكتب سؤالك هنا...",
-        "send": "إرسال السؤال",
         "clear": "مسح المحادثة",
         "upload": "ارفع ملف PDF",
-        "upload_success": "تم رفع الملف وقراءة محتواه بنجاح.",
-        "upload_error": "حدث خطأ أثناء قراءة الملف.",
-        "no_key": "لم يتم العثور على OpenAI API Key. يرجى إضافته في Secrets.",
+        "upload_success": "تم رفع الملف بنجاح.",
+        "upload_error": "تعذر استخراج النص من الملف.",
+        "no_key": "لم يتم العثور على OpenAI API Key. أضيفيه في Secrets.",
         "thinking": "جاري التفكير...",
         "history_title": "المحادثات السابقة",
-        "no_history": "لا توجد محادثات محفوظة حتى الآن.",
+        "no_history": "لا توجد محادثات محفوظة.",
         "about_title": "عن AI Mentor",
-        "about_text": "AI Mentor منصة تعليمية ذكية تستخدم الذكاء الاصطناعي لمساعدة المستخدمين في التعلم وفهم المعلومات والإجابة عن الأسئلة.",
+        "about_text": "منصة تعليمية ذكية تستخدم الذكاء الاصطناعي لمساعدتك في التعلم وفهم المعلومات.",
         "feedback": "هل كانت الإجابة مفيدة؟",
         "yes": "نعم، مفيدة",
         "no": "تحتاج تحسين",
-        "saved": "تم حفظ تقييمك، شكراً لك.",
+        "saved": "شكراً لك، تم حفظ تقييمك.",
         "library_title": "المكتبة المعرفية",
-        "library_text": "ارفعي ملفات PDF ليتمكن المساعد من الاستفادة من محتواها عند الإجابة.",
+        "library_text": "ارفعي ملفات PDF ليستفيد المساعد من محتواها.",
         "no_docs": "لم يتم رفع أي ملفات بعد.",
         "delete": "حذف",
         "new_chat": "محادثة جديدة",
-        "chat_title": "المحادثة الذكية",
-        "error": "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.",
-        "footer": "AI Mentor | Your Personal AI Learning Assistant",
         "choose_language": "اختاري اللغة",
-        "source": "مصدر المعرفة",
+        "error": "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.",
+        "db_error": "حدث خطأ أثناء التعامل مع قاعدة البيانات.",
         "general": "المعرفة العامة",
         "document": "الملفات المرفوعة"
     },
 
     "en": {
-        "title": "AI Mentor",
         "subtitle": "Your Intelligent Learning Assistant",
         "home": "Home",
         "chat": "AI Chat",
@@ -88,108 +81,196 @@ TEXT = {
         "history": "Chat History",
         "about": "About",
         "welcome": "Welcome to AI Mentor",
-        "welcome_text": "Your intelligent platform for learning, understanding, and discovering information.",
+        "welcome_text": "Your intelligent platform for learning and discovering information.",
         "start": "Start Chatting",
         "question": "Type your question here...",
-        "send": "Send Question",
         "clear": "Clear Chat",
         "upload": "Upload PDF",
-        "upload_success": "File uploaded and processed successfully.",
-        "upload_error": "Error while reading the file.",
-        "no_key": "OpenAI API Key not found. Please add it to Secrets.",
+        "upload_success": "File uploaded successfully.",
+        "upload_error": "Could not extract text from the file.",
+        "no_key": "OpenAI API Key not found. Add it to Secrets.",
         "thinking": "Thinking...",
         "history_title": "Previous Conversations",
-        "no_history": "No saved conversations yet.",
+        "no_history": "No saved conversations.",
         "about_title": "About AI Mentor",
-        "about_text": "AI Mentor is an intelligent educational platform that uses artificial intelligence to help users learn, understand information, and answer questions.",
+        "about_text": "An intelligent educational platform powered by artificial intelligence.",
         "feedback": "Was this answer helpful?",
         "yes": "Yes, Helpful",
         "no": "Needs Improvement",
-        "saved": "Your feedback has been saved. Thank you!",
+        "saved": "Thank you! Your feedback was saved.",
         "library_title": "Knowledge Library",
-        "library_text": "Upload PDF files so the assistant can use their content when answering.",
+        "library_text": "Upload PDF files to help the assistant use their content.",
         "no_docs": "No files uploaded yet.",
         "delete": "Delete",
         "new_chat": "New Chat",
-        "chat_title": "AI Chat",
-        "error": "An error occurred while connecting to AI.",
-        "footer": "AI Mentor | Your Personal AI Learning Assistant",
         "choose_language": "Choose Language",
-        "source": "Knowledge Source",
+        "error": "An error occurred while connecting to AI.",
+        "db_error": "A database error occurred.",
         "general": "General Knowledge",
         "document": "Uploaded Documents"
     }
 }
 
-T = TEXT[lang]
+T = TEXT[st.session_state.language]
+lang = st.session_state.language
 
 
 # ==========================================
-# 3. DATABASE
+# 3. DATABASE CONNECTION
 # ==========================================
 
 def get_connection():
-    return sqlite3.connect(DB_NAME)
+
+    conn = sqlite3.connect(
+        DB_NAME,
+        timeout=30
+    )
+
+    conn.execute("PRAGMA busy_timeout = 30000")
+
+    return conn
 
 
 def initialize_database():
 
-    conn = get_connection()
-    cursor = conn.cursor()
+    with get_connection() as conn:
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS conversations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            created_at TEXT
-        )
-    """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS conversations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT,
+                created_at TEXT
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            conversation_id INTEGER,
-            role TEXT,
-            content TEXT,
-            created_at TEXT
-        )
-    """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id INTEGER,
+                role TEXT,
+                content TEXT,
+                created_at TEXT
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS documents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            filename TEXT,
-            content TEXT,
-            uploaded_at TEXT
-        )
-    """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS documents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                filename TEXT,
+                content TEXT,
+                uploaded_at TEXT
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS feedback (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            message TEXT,
-            rating TEXT,
-            created_at TEXT
-        )
-    """)
-
-    conn.commit()
-    conn.close()
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message TEXT,
+                rating TEXT,
+                created_at TEXT
+            )
+        """)
 
 
-initialize_database()
+try:
+    initialize_database()
+
+except sqlite3.Error as e:
+    st.error(T["db_error"])
+    st.exception(e)
+    st.stop()
 
 
 # ==========================================
-# 4. OPENAI API CONNECTION
+# 4. DATABASE FUNCTIONS
+# ==========================================
+
+def create_conversation():
+
+    with get_connection() as conn:
+
+        cursor = conn.execute("""
+            INSERT INTO conversations (title, created_at)
+            VALUES (?, ?)
+        """, (
+            "New Conversation",
+            datetime.now().isoformat()
+        ))
+
+        return cursor.lastrowid
+
+
+def save_message(conversation_id, role, content):
+
+    with get_connection() as conn:
+
+        conn.execute("""
+            INSERT INTO messages
+            (conversation_id, role, content, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (
+            conversation_id,
+            role,
+            content,
+            datetime.now().isoformat()
+        ))
+
+
+def load_conversations():
+
+    with get_connection() as conn:
+
+        return conn.execute("""
+            SELECT id, title, created_at
+            FROM conversations
+            ORDER BY id DESC
+        """).fetchall()
+
+
+def load_messages(conversation_id):
+
+    with get_connection() as conn:
+
+        rows = conn.execute("""
+            SELECT role, content
+            FROM messages
+            WHERE conversation_id = ?
+            ORDER BY id
+        """, (conversation_id,)).fetchall()
+
+    return [
+        {"role": row[0], "content": row[1]}
+        for row in rows
+    ]
+
+
+def save_feedback(message, rating):
+
+    with get_connection() as conn:
+
+        conn.execute("""
+            INSERT INTO feedback
+            (message, rating, created_at)
+            VALUES (?, ?, ?)
+        """, (
+            message,
+            rating,
+            datetime.now().isoformat()
+        ))
+
+
+# ==========================================
+# 5. OPENAI CONNECTION
 # ==========================================
 
 def get_api_key():
 
     try:
         key = st.secrets.get("OPENAI_API_KEY", "")
+
         if key:
             return key
+
     except Exception:
         pass
 
@@ -198,19 +279,19 @@ def get_api_key():
 
 def get_client():
 
-    api_key = get_api_key()
+    key = get_api_key()
 
-    if not api_key:
+    if not key:
         return None
 
-    return OpenAI(api_key=api_key)
+    return OpenAI(api_key=key)
 
 
 client = get_client()
 
 
 # ==========================================
-# 5. SESSION STATE
+# 6. SESSION STATE
 # ==========================================
 
 if "conversation_id" not in st.session_state:
@@ -223,90 +304,13 @@ if "last_answer" not in st.session_state:
     st.session_state.last_answer = ""
 
 
-# ==========================================
-# 6. DATABASE FUNCTIONS
-# ==========================================
+def start_new_chat():
 
-def create_conversation():
+    conversation_id = create_conversation()
 
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "INSERT INTO conversations (title, created_at) VALUES (?, ?)",
-        ("New Conversation", datetime.now().isoformat())
-    )
-
-    conversation_id = cursor.lastrowid
-
-    conn.commit()
-    conn.close()
-
-    return conversation_id
-
-
-def save_message(conversation_id, role, content):
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO messages
-        (conversation_id, role, content, created_at)
-        VALUES (?, ?, ?, ?)
-    """, (
-        conversation_id,
-        role,
-        content,
-        datetime.now().isoformat()
-    ))
-
-    conn.commit()
-    conn.close()
-
-
-def load_conversations():
-
-    conn = get_connection()
-
-    rows = conn.execute("""
-        SELECT id, title, created_at
-        FROM conversations
-        ORDER BY id DESC
-    """).fetchall()
-
-    conn.close()
-
-    return rows
-
-
-def load_messages(conversation_id):
-
-    conn = get_connection()
-
-    rows = conn.execute("""
-        SELECT role, content
-        FROM messages
-        WHERE conversation_id = ?
-        ORDER BY id
-    """, (conversation_id,)).fetchall()
-
-    conn.close()
-
-    return [{"role": r[0], "content": r[1]} for r in rows]
-
-
-def save_feedback(message, rating):
-
-    conn = get_connection()
-
-    conn.execute("""
-        INSERT INTO feedback (message, rating, created_at)
-        VALUES (?, ?, ?)
-    """, (message, rating, datetime.now().isoformat()))
-
-    conn.commit()
-    conn.close()
+    st.session_state.conversation_id = conversation_id
+    st.session_state.messages = []
+    st.session_state.last_answer = ""
 
 
 # ==========================================
@@ -320,6 +324,7 @@ def extract_pdf_text(uploaded_file):
     text = ""
 
     for page in reader.pages:
+
         page_text = page.extract_text()
 
         if page_text:
@@ -330,56 +335,58 @@ def extract_pdf_text(uploaded_file):
 
 def save_document(filename, content):
 
-    conn = get_connection()
+    with get_connection() as conn:
 
-    conn.execute("""
-        INSERT INTO documents
-        (filename, content, uploaded_at)
-        VALUES (?, ?, ?)
-    """, (
-        filename,
-        content,
-        datetime.now().isoformat()
-    ))
-
-    conn.commit()
-    conn.close()
+        conn.execute("""
+            INSERT INTO documents
+            (filename, content, uploaded_at)
+            VALUES (?, ?, ?)
+        """, (
+            filename,
+            content,
+            datetime.now().isoformat()
+        ))
 
 
 def get_documents():
 
-    conn = get_connection()
+    with get_connection() as conn:
 
-    rows = conn.execute("""
-        SELECT id, filename, uploaded_at
-        FROM documents
-        ORDER BY id DESC
-    """).fetchall()
-
-    conn.close()
-
-    return rows
+        return conn.execute("""
+            SELECT id, filename, uploaded_at
+            FROM documents
+            ORDER BY id DESC
+        """).fetchall()
 
 
 def get_document_context():
 
-    conn = get_connection()
+    with get_connection() as conn:
 
-    rows = conn.execute("""
-        SELECT filename, content
-        FROM documents
-        ORDER BY id DESC
-    """).fetchall()
-
-    conn.close()
+        rows = conn.execute("""
+            SELECT filename, content
+            FROM documents
+            ORDER BY id DESC
+        """).fetchall()
 
     context = ""
 
     for filename, content in rows:
+
         context += f"\nDocument: {filename}\n"
         context += content[:12000]
 
     return context[:30000]
+
+
+def delete_document(doc_id):
+
+    with get_connection() as conn:
+
+        conn.execute(
+            "DELETE FROM documents WHERE id = ?",
+            (doc_id,)
+        )
 
 
 # ==========================================
@@ -404,39 +411,35 @@ def generate_ai_response(question, conversation_history):
 2. افهم اللهجات العربية، بما فيها اللهجة السودانية.
 3. قدم إجابات واضحة ومنظمة وسهلة الفهم.
 4. اشرح المفاهيم الصعبة بأمثلة بسيطة.
-5. لا تخترع معلومات عند عدم التأكد.
-6. إذا كان السؤال متعلقاً بملف مرفوع، استخدم محتواه.
-7. إذا لم تجد الإجابة في الملف، وضح ذلك للمستخدم.
+5. لا تخترع معلومات.
+6. استخدم الملفات المرفوعة عندما يكون السؤال متعلقاً بها.
+7. وضح للمستخدم إذا لم تجد الإجابة في الملف.
 8. كن ودوداً ومهنياً.
-9. لا تخرج عن دورك كمساعد ذكي للتعلم والمعرفة.
 """
 
     else:
 
         system_prompt = """
-You are AI Mentor, an intelligent learning and knowledge assistant.
+You are AI Mentor, an intelligent learning assistant.
 
-Your rules:
-
-1. Reply in the same language used by the user.
-2. Provide clear and well-organized answers.
-3. Explain difficult concepts using simple examples.
+Rules:
+1. Reply in the user's language.
+2. Provide clear and organized answers.
+3. Explain difficult concepts with simple examples.
 4. Never invent information.
-5. Use uploaded document content when relevant.
-6. If the answer is not available in a document, explain that.
-7. Be friendly and professional.
-8. Focus on learning and knowledge assistance.
+5. Use uploaded documents when relevant.
+6. Be friendly and professional.
 """
 
     if document_context:
 
         system_prompt += f"""
 
-Uploaded knowledge library:
+Uploaded documents:
 
 {document_context}
 
-Use this content when it is relevant to the user's question.
+Use these documents when relevant to the question.
 """
 
     messages = [
@@ -467,83 +470,73 @@ Use this content when it is relevant to the user's question.
 st.markdown("""
 <style>
 
-/* Main background */
-
 .stApp {
-    background:
-        linear-gradient(
-            135deg,
-            #10091F 0%,
-            #1B1033 45%,
-            #241044 100%
-        );
+    background: linear-gradient(
+        135deg,
+        #10091F,
+        #1B1033,
+        #241044
+    );
 
-    color: #FFFFFF;
+    color: white;
 }
-
-/* Main content */
 
 .block-container {
     padding-top: 2rem;
     padding-bottom: 3rem;
 }
 
-/* Text */
-
 h1, h2, h3, h4, p, label {
     color: #FFFFFF !important;
 }
 
-/* Sidebar */
-
 section[data-testid="stSidebar"] {
     background: #160D29;
-    border-right: 1px solid #55358B;
+    border-right: 1px solid #7045A6;
 }
 
 /* Buttons */
 
 .stButton > button {
-    background: #A855F7 !important;
+    background-color: #A855F7 !important;
     color: #FFFFFF !important;
-    border: 1px solid #C084FC !important;
+    border: 2px solid #C084FC !important;
     border-radius: 12px !important;
-    font-weight: 700 !important;
+    font-weight: bold !important;
     padding: 10px 18px !important;
-    transition: 0.3s ease;
 }
 
 .stButton > button:hover {
-    background: #7E22CE !important;
-    color: #FFFFFF !important;
-    border: 1px solid #E9D5FF !important;
-    transform: translateY(-2px);
+    background-color: #7E22CE !important;
+    color: white !important;
+    border-color: #E9D5FF !important;
 }
 
-/* Inputs */
+/* Chat input */
+
+.stChatInput textarea {
+    background: #2B1B45 !important;
+    color: white !important;
+}
+
+/* Text fields */
 
 .stTextInput input,
 .stTextArea textarea {
     background: #2B1B45 !important;
-    color: #FFFFFF !important;
-    border: 1px solid #9B6BD3 !important;
+    color: white !important;
+    border: 1px solid #A855F7 !important;
     border-radius: 10px !important;
 }
 
-.stTextInput input::placeholder,
-.stTextArea textarea::placeholder {
-    color: #D8C9EB !important;
-}
-
-/* Selectbox */
+/* Select box */
 
 div[data-baseweb="select"] {
     background: #2B1B45 !important;
-    border-radius: 10px;
 }
 
 div[data-baseweb="select"] * {
-    color: #FFFFFF !important;
+    color: white !important;
 }
 
 /* Cards */
@@ -555,11 +548,10 @@ div[data-baseweb="select"] * {
         #25143D
     );
 
-    border: 1px solid #7045A6;
+    border: 1px solid #8755B8;
     border-radius: 18px;
     padding: 25px;
     margin-bottom: 18px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
 }
 
 /* Hero */
@@ -578,7 +570,7 @@ div[data-baseweb="select"] * {
     margin-bottom: 25px;
 }
 
-/* Chat messages */
+/* Chat */
 
 div[data-testid="stChatMessage"] {
     background: #291B40;
@@ -588,29 +580,20 @@ div[data-testid="stChatMessage"] {
     margin-bottom: 12px;
 }
 
-/* File uploader */
-
-div[data-testid="stFileUploader"] {
-    background: #25173A;
-    border: 1px dashed #A855F7;
-    border-radius: 15px;
-    padding: 15px;
-}
-
-/* Success messages */
-
-div[data-testid="stAlert"] {
-    border-radius: 12px;
-}
-
 /* Footer */
 
 .footer {
     text-align: center;
-    color: #C4B5D9;
-    padding: 25px;
-    margin-top: 35px;
+    color: #D8C9EB;
+    padding: 20px;
+    margin-top: 30px;
     border-top: 1px solid #55358B;
+}
+
+/* Radio buttons */
+
+.stRadio label {
+    color: white !important;
 }
 
 </style>
@@ -623,19 +606,20 @@ div[data-testid="stAlert"] {
 
 with st.sidebar:
 
-    st.markdown(
-        "<h1 style='text-align:center;color:#C084FC;'>🤖 AI Mentor</h1>",
-        unsafe_allow_html=True
-    )
+    st.markdown("""
+    <h1 style="text-align:center;color:#C084FC;">
+        🤖 AI Mentor
+    </h1>
+    """, unsafe_allow_html=True)
 
     st.markdown(
-        f"<p style='text-align:center;color:#D8C9EB;'>{T['subtitle']}</p>",
+        f"<p style='text-align:center'>{T['subtitle']}</p>",
         unsafe_allow_html=True
     )
 
     st.divider()
 
-    st.markdown(f"### 🌐 {T['choose_language']}")
+    st.markdown("### 🌐 " + T["choose_language"])
 
     selected_language = st.selectbox(
         "Language",
@@ -644,11 +628,9 @@ with st.sidebar:
         label_visibility="collapsed"
     )
 
-    new_language = LANGUAGES[selected_language]
+    if LANGUAGES[selected_language] != lang:
 
-    if new_language != lang:
-
-        st.session_state.language = new_language
+        st.session_state.language = LANGUAGES[selected_language]
         st.rerun()
 
     st.divider()
@@ -667,18 +649,19 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button("➕ " + T["new_chat"], use_container_width=True):
+    if st.button(
+        "➕ " + T["new_chat"],
+        use_container_width=True
+    ):
 
-        st.session_state.conversation_id = create_conversation()
-        st.session_state.messages = []
-        st.session_state.last_answer = ""
+        try:
+            start_new_chat()
+            st.session_state.current_page = T["chat"]
+            st.rerun()
 
-        st.rerun()
-
-    st.markdown(
-        f"<div class='footer'>{T['footer']}</div>",
-        unsafe_allow_html=True
-    )
+        except sqlite3.Error as e:
+            st.error(T["db_error"])
+            st.exception(e)
 
 
 # ==========================================
@@ -700,6 +683,7 @@ if page == T["home"]:
     col1, col2, col3 = st.columns(3)
 
     with col1:
+
         st.markdown("""
         <div class="mentor-card">
             <h2>🧠</h2>
@@ -709,6 +693,7 @@ if page == T["home"]:
         """, unsafe_allow_html=True)
 
     with col2:
+
         st.markdown("""
         <div class="mentor-card">
             <h2>📚</h2>
@@ -718,6 +703,7 @@ if page == T["home"]:
         """, unsafe_allow_html=True)
 
     with col3:
+
         st.markdown("""
         <div class="mentor-card">
             <h2>📄</h2>
@@ -726,14 +712,23 @@ if page == T["home"]:
         </div>
         """, unsafe_allow_html=True)
 
-    st.write("")
+    if st.button(
+        "🚀 " + T["start"],
+        use_container_width=True
+    ):
 
-    if st.button("🚀 " + T["start"], use_container_width=True):
+        try:
 
-        st.session_state.conversation_id = create_conversation()
-        st.session_state.messages = []
+            start_new_chat()
 
-        st.rerun()
+            st.session_state.current_page = T["chat"]
+
+            st.rerun()
+
+        except sqlite3.Error as e:
+
+            st.error(T["db_error"])
+            st.exception(e)
 
 
 # ==========================================
@@ -742,49 +737,50 @@ if page == T["home"]:
 
 elif page == T["chat"]:
 
-    st.title("💬 " + T["chat_title"])
+    st.title("💬 " + T["chat"])
 
     st.caption(T["subtitle"])
 
     if st.session_state.conversation_id is None:
 
-        st.session_state.conversation_id = create_conversation()
+        try:
 
-    if not st.session_state.messages:
+            start_new_chat()
 
-        st.session_state.messages = load_messages(
-            st.session_state.conversation_id
-        )
+        except sqlite3.Error as e:
+
+            st.error(T["db_error"])
+            st.exception(e)
+            st.stop()
 
     for message in st.session_state.messages:
 
         with st.chat_message(message["role"]):
-
             st.markdown(message["content"])
 
     question = st.chat_input(T["question"])
 
     if question:
 
-        st.session_state.messages.append({
-            "role": "user",
-            "content": question
-        })
-
-        save_message(
-            st.session_state.conversation_id,
-            "user",
-            question
-        )
-
         with st.chat_message("user"):
             st.markdown(question)
 
-        with st.chat_message("assistant"):
+        try:
 
-            with st.spinner(T["thinking"]):
+            save_message(
+                st.session_state.conversation_id,
+                "user",
+                question
+            )
 
-                try:
+            st.session_state.messages.append({
+                "role": "user",
+                "content": question
+            })
+
+            with st.chat_message("assistant"):
+
+                with st.spinner(T["thinking"]):
 
                     answer = generate_ai_response(
                         question,
@@ -793,24 +789,23 @@ elif page == T["chat"]:
 
                     st.markdown(answer)
 
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": answer
-                    })
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": answer
+            })
 
-                    save_message(
-                        st.session_state.conversation_id,
-                        "assistant",
-                        answer
-                    )
+            save_message(
+                st.session_state.conversation_id,
+                "assistant",
+                answer
+            )
 
-                    st.session_state.last_answer = answer
+            st.session_state.last_answer = answer
 
-                except Exception as e:
+        except Exception as e:
 
-                    st.error(T["error"])
-
-                    st.caption(str(e))
+            st.error(T["error"])
+            st.caption(str(e))
 
     if st.session_state.last_answer:
 
@@ -824,31 +819,49 @@ elif page == T["chat"]:
 
             if st.button("👍 " + T["yes"]):
 
-                save_feedback(
-                    st.session_state.last_answer,
-                    "Positive"
-                )
+                try:
 
-                st.success(T["saved"])
+                    save_feedback(
+                        st.session_state.last_answer,
+                        "Positive"
+                    )
+
+                    st.success(T["saved"])
+
+                except sqlite3.Error as e:
+
+                    st.error(T["db_error"])
+                    st.exception(e)
 
         with col2:
 
             if st.button("👎 " + T["no"]):
 
-                save_feedback(
-                    st.session_state.last_answer,
-                    "Negative"
-                )
+                try:
 
-                st.success(T["saved"])
+                    save_feedback(
+                        st.session_state.last_answer,
+                        "Negative"
+                    )
+
+                    st.success(T["saved"])
+
+                except sqlite3.Error as e:
+
+                    st.error(T["db_error"])
+                    st.exception(e)
 
     if st.button("🗑️ " + T["clear"]):
 
-        st.session_state.conversation_id = create_conversation()
-        st.session_state.messages = []
-        st.session_state.last_answer = ""
+        try:
 
-        st.rerun()
+            start_new_chat()
+            st.rerun()
+
+        except sqlite3.Error as e:
+
+            st.error(T["db_error"])
+            st.exception(e)
 
 
 # ==========================================
@@ -887,13 +900,12 @@ elif page == T["library"]:
 
                     st.warning(T["upload_error"])
 
-            except Exception:
+            except Exception as e:
 
                 st.error(T["upload_error"])
+                st.caption(str(e))
 
     st.divider()
-
-    st.subheader("📁 " + T["library_title"])
 
     documents = get_documents()
 
@@ -905,10 +917,7 @@ elif page == T["library"]:
 
             with col1:
 
-                st.markdown(
-                    f"📄 **{filename}**"
-                )
-
+                st.markdown(f"📄 **{filename}**")
                 st.caption(uploaded_at[:16])
 
             with col2:
@@ -918,16 +927,7 @@ elif page == T["library"]:
                     key=f"delete_{doc_id}"
                 ):
 
-                    conn = get_connection()
-
-                    conn.execute(
-                        "DELETE FROM documents WHERE id = ?",
-                        (doc_id,)
-                    )
-
-                    conn.commit()
-                    conn.close()
-
+                    delete_document(doc_id)
                     st.rerun()
 
     else:
@@ -955,19 +955,16 @@ elif page == T["history"]:
 
                 messages = load_messages(conversation_id)
 
-                if messages:
+                for message in messages:
 
-                    for message in messages:
+                    role = (
+                        "👤 User"
+                        if message["role"] == "user"
+                        else "🤖 AI Mentor"
+                    )
 
-                        role = (
-                            "👤 User"
-                            if message["role"] == "user"
-                            else "🤖 AI Mentor"
-                        )
-
-                        st.markdown(f"**{role}**")
-
-                        st.write(message["content"])
+                    st.markdown(f"**{role}**")
+                    st.write(message["content"])
 
                 if st.button(
                     "📖 Open Conversation",
@@ -976,6 +973,7 @@ elif page == T["history"]:
 
                     st.session_state.conversation_id = conversation_id
                     st.session_state.messages = messages
+
                     st.session_state.last_answer = next(
                         (
                             m["content"]
@@ -985,6 +983,7 @@ elif page == T["history"]:
                         ""
                     )
 
+                    st.session_state.current_page = T["chat"]
                     st.rerun()
 
     else:
@@ -1027,7 +1026,7 @@ elif page == T["about"]:
             Python | Streamlit | OpenAI API | SQLite | PyPDF
         </p>
 
-        <h3>Version 1.2</h3>
+        <h3>Version 2.0</h3>
 
     </div>
     """, unsafe_allow_html=True)
@@ -1041,4 +1040,4 @@ st.markdown("""
 <div class="footer">
     🤖 AI Mentor | Powered by Artificial Intelligence
 </div>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=True) 
