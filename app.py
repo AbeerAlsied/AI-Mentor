@@ -1,7 +1,6 @@
 import os
 import re
 import sqlite3
-import uuid
 from datetime import datetime
 
 import streamlit as st
@@ -10,7 +9,7 @@ from pypdf import PdfReader
 
 
 # ==========================================
-# 1. APP CONFIGURATION
+# 1. PAGE CONFIGURATION
 # ==========================================
 
 st.set_page_config(
@@ -25,169 +24,104 @@ MODEL_NAME = "gpt-4o-mini"
 
 
 # ==========================================
-# 2. PURPLE THEME
+# 2. LANGUAGE SETTINGS
 # ==========================================
 
-st.markdown("""
-<style>
-
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
-
-html, body, [class*="css"] {
-    font-family: 'Cairo', sans-serif;
+LANGUAGES = {
+    "العربية": "ar",
+    "English": "en"
 }
 
-.stApp {
-    background: linear-gradient(
-        135deg,
-        #100b24 0%,
-        #191033 50%,
-        #241345 100%
-    );
-    color: #ffffff;
+if "language" not in st.session_state:
+    st.session_state.language = "ar"
+
+lang = st.session_state.language
+
+TEXT = {
+    "ar": {
+        "title": "AI Mentor",
+        "subtitle": "مساعدك الذكي للتعلم والمعرفة",
+        "home": "الرئيسية",
+        "chat": "المحادثة الذكية",
+        "library": "المكتبة المعرفية",
+        "history": "سجل المحادثات",
+        "about": "عن المنصة",
+        "welcome": "مرحباً بك في AI Mentor",
+        "welcome_text": "منصتك الذكية للتعلم والإجابة عن الأسئلة وفهم المعلومات.",
+        "start": "ابدأ المحادثة",
+        "question": "اكتب سؤالك هنا...",
+        "send": "إرسال السؤال",
+        "clear": "مسح المحادثة",
+        "upload": "ارفع ملف PDF",
+        "upload_success": "تم رفع الملف وقراءة محتواه بنجاح.",
+        "upload_error": "حدث خطأ أثناء قراءة الملف.",
+        "no_key": "لم يتم العثور على OpenAI API Key. يرجى إضافته في Secrets.",
+        "thinking": "جاري التفكير...",
+        "history_title": "المحادثات السابقة",
+        "no_history": "لا توجد محادثات محفوظة حتى الآن.",
+        "about_title": "عن AI Mentor",
+        "about_text": "AI Mentor منصة تعليمية ذكية تستخدم الذكاء الاصطناعي لمساعدة المستخدمين في التعلم وفهم المعلومات والإجابة عن الأسئلة.",
+        "feedback": "هل كانت الإجابة مفيدة؟",
+        "yes": "نعم، مفيدة",
+        "no": "تحتاج تحسين",
+        "saved": "تم حفظ تقييمك، شكراً لك.",
+        "library_title": "المكتبة المعرفية",
+        "library_text": "ارفعي ملفات PDF ليتمكن المساعد من الاستفادة من محتواها عند الإجابة.",
+        "no_docs": "لم يتم رفع أي ملفات بعد.",
+        "delete": "حذف",
+        "new_chat": "محادثة جديدة",
+        "chat_title": "المحادثة الذكية",
+        "error": "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.",
+        "footer": "AI Mentor | Your Personal AI Learning Assistant",
+        "choose_language": "اختاري اللغة",
+        "source": "مصدر المعرفة",
+        "general": "المعرفة العامة",
+        "document": "الملفات المرفوعة"
+    },
+
+    "en": {
+        "title": "AI Mentor",
+        "subtitle": "Your Intelligent Learning Assistant",
+        "home": "Home",
+        "chat": "AI Chat",
+        "library": "Knowledge Library",
+        "history": "Chat History",
+        "about": "About",
+        "welcome": "Welcome to AI Mentor",
+        "welcome_text": "Your intelligent platform for learning, understanding, and discovering information.",
+        "start": "Start Chatting",
+        "question": "Type your question here...",
+        "send": "Send Question",
+        "clear": "Clear Chat",
+        "upload": "Upload PDF",
+        "upload_success": "File uploaded and processed successfully.",
+        "upload_error": "Error while reading the file.",
+        "no_key": "OpenAI API Key not found. Please add it to Secrets.",
+        "thinking": "Thinking...",
+        "history_title": "Previous Conversations",
+        "no_history": "No saved conversations yet.",
+        "about_title": "About AI Mentor",
+        "about_text": "AI Mentor is an intelligent educational platform that uses artificial intelligence to help users learn, understand information, and answer questions.",
+        "feedback": "Was this answer helpful?",
+        "yes": "Yes, Helpful",
+        "no": "Needs Improvement",
+        "saved": "Your feedback has been saved. Thank you!",
+        "library_title": "Knowledge Library",
+        "library_text": "Upload PDF files so the assistant can use their content when answering.",
+        "no_docs": "No files uploaded yet.",
+        "delete": "Delete",
+        "new_chat": "New Chat",
+        "chat_title": "AI Chat",
+        "error": "An error occurred while connecting to AI.",
+        "footer": "AI Mentor | Your Personal AI Learning Assistant",
+        "choose_language": "Choose Language",
+        "source": "Knowledge Source",
+        "general": "General Knowledge",
+        "document": "Uploaded Documents"
+    }
 }
 
-header {
-    background: transparent !important;
-}
-
-section[data-testid="stSidebar"] {
-    background: linear-gradient(
-        180deg,
-        #21133f,
-        #120d29
-    );
-    border-right: 1px solid #513b82;
-}
-
-section[data-testid="stSidebar"] * {
-    color: #ffffff !important;
-}
-
-.hero {
-    background: linear-gradient(
-        120deg,
-        #38206e,
-        #6337a5,
-        #8a55c7
-    );
-    padding: 38px 20px;
-    border-radius: 25px;
-    text-align: center;
-    border: 1px solid #a58add;
-    box-shadow: 0 10px 35px rgba(0,0,0,0.3);
-    margin-bottom: 30px;
-}
-
-.hero h1 {
-    color: white;
-    font-size: 42px;
-    font-weight: 800;
-    margin-bottom: 8px;
-}
-
-.hero h3 {
-    color: #eee5ff;
-    font-size: 19px;
-}
-
-.hero p {
-    color: #f5edff;
-    font-size: 16px;
-}
-
-.section-title {
-    color: #d9c2ff;
-    font-size: 25px;
-    font-weight: 800;
-    margin-top: 20px;
-}
-
-.info-card {
-    background: linear-gradient(
-        135deg,
-        #2c1b50,
-        #44266e
-    );
-    border: 1px solid #7656a8;
-    border-radius: 18px;
-    padding: 20px;
-    margin-bottom: 15px;
-}
-
-.info-card h3 {
-    color: #e4d2ff;
-}
-
-.info-card p {
-    color: #f0eaff;
-}
-
-.stButton > button {
-    background: linear-gradient(
-        90deg,
-        #7544bb,
-        #a16bdf
-    );
-    color: white !important;
-    border: none;
-    border-radius: 12px;
-    font-weight: bold;
-    padding: 9px 18px;
-    transition: 0.3s;
-}
-
-.stButton > button:hover {
-    background: linear-gradient(
-        90deg,
-        #9361d3,
-        #bb8cf0
-    );
-    border: 1px solid white;
-}
-
-.stTextInput input,
-.stTextArea textarea,
-.stSelectbox div[data-baseweb="select"] {
-    background-color: #21163c !important;
-    color: white !important;
-    border: 1px solid #7956ad !important;
-    border-radius: 12px !important;
-}
-
-.stTextInput label,
-.stTextArea label,
-.stSelectbox label {
-    color: #e3d5ff !important;
-}
-
-.stChatMessage {
-    background: #291b46;
-    border: 1px solid #60458c;
-    border-radius: 15px;
-}
-
-[data-testid="stMetric"] {
-    background: #2b1c49;
-    border: 1px solid #694b96;
-    padding: 15px;
-    border-radius: 15px;
-}
-
-.stTabs [data-baseweb="tab"] {
-    color: white;
-}
-
-hr {
-    border-color: #674a91;
-}
-
-footer {
-    visibility: hidden;
-}
-
-</style>
-""", unsafe_allow_html=True)
+T = TEXT[lang]
 
 
 # ==========================================
@@ -195,454 +129,632 @@ footer {
 # ==========================================
 
 def get_connection():
-    return sqlite3.connect(DB_NAME, timeout=30)
+    return sqlite3.connect(DB_NAME)
 
 
 def initialize_database():
 
-    with get_connection() as conn:
+    conn = get_connection()
+    cursor = conn.cursor()
 
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS knowledge (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                content TEXT NOT NULL,
-                created_at TEXT
-            )
-        """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            created_at TEXT
+        )
+    """)
 
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT,
-                role TEXT,
-                content TEXT,
-                created_at TEXT
-            )
-        """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id INTEGER,
+            role TEXT,
+            content TEXT,
+            created_at TEXT
+        )
+    """)
 
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS feedback (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT,
-                rating INTEGER,
-                created_at TEXT
-            )
-        """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT,
+            content TEXT,
+            uploaded_at TEXT
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message TEXT,
+            rating TEXT,
+            created_at TEXT
+        )
+    """)
+
+    conn.commit()
+    conn.close()
 
 
 initialize_database()
 
 
 # ==========================================
-# 4. SESSION MANAGEMENT
-# ==========================================
-
-if "session_id" not in st.session_state:
-    st.session_state.session_id = str(uuid.uuid4())
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "pending_question" not in st.session_state:
-    st.session_state.pending_question = None
-
-
-# ==========================================
-# 5. DATABASE FUNCTIONS
-# ==========================================
-
-def save_message(role, content):
-
-    with get_connection() as conn:
-
-        conn.execute("""
-            INSERT INTO conversations
-            (session_id, role, content, created_at)
-            VALUES (?, ?, ?, ?)
-        """, (
-            st.session_state.session_id,
-            role,
-            content,
-            datetime.now().isoformat()
-        ))
-
-
-def load_messages():
-
-    with get_connection() as conn:
-
-        rows = conn.execute("""
-            SELECT role, content
-            FROM conversations
-            WHERE session_id = ?
-            ORDER BY id
-        """, (st.session_state.session_id,)).fetchall()
-
-    return [
-        {"role": row[0], "content": row[1]}
-        for row in rows
-    ]
-
-
-def save_knowledge(title, content):
-
-    with get_connection() as conn:
-
-        conn.execute("""
-            INSERT INTO knowledge
-            (title, content, created_at)
-            VALUES (?, ?, ?)
-        """, (
-            title,
-            content,
-            datetime.now().isoformat()
-        ))
-
-
-def get_knowledge():
-
-    with get_connection() as conn:
-
-        return conn.execute("""
-            SELECT id, title, content, created_at
-            FROM knowledge
-            ORDER BY id DESC
-        """).fetchall()
-
-
-def delete_knowledge(item_id):
-
-    with get_connection() as conn:
-
-        conn.execute(
-            "DELETE FROM knowledge WHERE id = ?",
-            (item_id,)
-        )
-
-
-def save_feedback(rating):
-
-    with get_connection() as conn:
-
-        conn.execute("""
-            INSERT INTO feedback
-            (session_id, rating, created_at)
-            VALUES (?, ?, ?)
-        """, (
-            st.session_state.session_id,
-            rating,
-            datetime.now().isoformat()
-        ))
-
-
-# ==========================================
-# 6. KNOWLEDGE SEARCH
-# ==========================================
-
-def search_knowledge(question):
-
-    items = get_knowledge()
-
-    question_words = set(
-        re.findall(r'\w+', question.lower())
-    )
-
-    results = []
-
-    for item in items:
-
-        title = item[1]
-        content = item[2]
-
-        text = (title + " " + content).lower()
-
-        words = set(re.findall(r'\w+', text))
-
-        score = len(question_words.intersection(words))
-
-        if score > 0:
-            results.append((score, title, content))
-
-    results.sort(reverse=True, key=lambda x: x[0])
-
-    selected = results[:3]
-
-    return "\n\n".join([
-        f"العنوان: {title}\nالمحتوى: {content[:4000]}"
-        for score, title, content in selected
-    ])
-
-
-# ==========================================
-# 7. PDF READER
-# ==========================================
-
-def read_pdf(uploaded_file):
-
-    reader = PdfReader(uploaded_file)
-
-    pages = []
-
-    for page in reader.pages:
-
-        text = page.extract_text()
-
-        if text:
-            pages.append(text)
-
-    return "\n".join(pages)
-
-
-# ==========================================
-# 8. OPENAI CONFIGURATION
+# 4. OPENAI API CONNECTION
 # ==========================================
 
 def get_api_key():
 
     try:
-        return st.secrets["OPENAI_API_KEY"]
-
+        key = st.secrets.get("OPENAI_API_KEY", "")
+        if key:
+            return key
     except Exception:
-        return os.getenv("OPENAI_API_KEY")
+        pass
+
+    return os.environ.get("OPENAI_API_KEY", "")
 
 
-def get_ai_response(question, history):
+def get_client():
 
     api_key = get_api_key()
 
     if not api_key:
-        return (
-            "مفتاح OpenAI API غير موجود. "
-            "أضيفي OPENAI_API_KEY في Streamlit Secrets."
-        )
+        return None
 
-    try:
+    return OpenAI(api_key=api_key)
 
-        client = OpenAI(api_key=api_key)
 
-        knowledge_context = search_knowledge(question)
-
-        system_prompt = """
-You are AI Mentor, a specialized Artificial Intelligence assistant.
-
-Your specialization is ONLY Artificial Intelligence and related fields.
-
-You help users learn about:
-
-- Artificial Intelligence
-- Machine Learning
-- Deep Learning
-- Neural Networks
-- Generative AI
-- Natural Language Processing
-- Computer Vision
-- Python for AI
-- AI tools and projects
-- AI ethics and applications
-
-LANGUAGE RULES:
-
-1. Understand Arabic and English.
-2. Understand Sudanese Arabic dialect.
-3. Understand Egyptian, Gulf, Levantine and Maghrebi dialects.
-4. Reply using the same language as the user.
-5. If the user speaks Sudanese Arabic, reply naturally in Sudanese Arabic.
-6. Never criticize spelling or dialect.
-7. Explain difficult concepts simply and clearly.
-
-SCOPE RULE:
-
-If a question is unrelated to Artificial Intelligence,
-politely explain that you are specialized in AI
-and invite the user to ask an AI-related question.
-
-Do not claim that you trained yourself using saved information.
-Saved information is reference knowledge only.
-
-Be helpful, accurate and educational.
-"""
-
-        if knowledge_context:
-
-            system_prompt += """
-
-USER KNOWLEDGE LIBRARY:
-
-The following information was saved by the user.
-Use it when relevant to answer the question.
-
-""" + knowledge_context
-
-        messages = [
-            {
-                "role": "system",
-                "content": system_prompt
-            }
-        ]
-
-        for message in history[-10:]:
-
-            if message["role"] in ["user", "assistant"]:
-
-                messages.append(message)
-
-        messages.append({
-            "role": "user",
-            "content": question
-        })
-
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            temperature=0.5,
-            max_tokens=1500
-        )
-
-        return response.choices[0].message.content
-
-    except Exception:
-        return (
-            "حدث خطأ أثناء الاتصال بخدمة الذكاء الاصطناعي. "
-            "راجعي إعدادات API Key والاتصال بالإنترنت."
-        )
+client = get_client()
 
 
 # ==========================================
-# 9. SIDEBAR
+# 5. SESSION STATE
+# ==========================================
+
+if "conversation_id" not in st.session_state:
+    st.session_state.conversation_id = None
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "last_answer" not in st.session_state:
+    st.session_state.last_answer = ""
+
+
+# ==========================================
+# 6. DATABASE FUNCTIONS
+# ==========================================
+
+def create_conversation():
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "INSERT INTO conversations (title, created_at) VALUES (?, ?)",
+        ("New Conversation", datetime.now().isoformat())
+    )
+
+    conversation_id = cursor.lastrowid
+
+    conn.commit()
+    conn.close()
+
+    return conversation_id
+
+
+def save_message(conversation_id, role, content):
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO messages
+        (conversation_id, role, content, created_at)
+        VALUES (?, ?, ?, ?)
+    """, (
+        conversation_id,
+        role,
+        content,
+        datetime.now().isoformat()
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def load_conversations():
+
+    conn = get_connection()
+
+    rows = conn.execute("""
+        SELECT id, title, created_at
+        FROM conversations
+        ORDER BY id DESC
+    """).fetchall()
+
+    conn.close()
+
+    return rows
+
+
+def load_messages(conversation_id):
+
+    conn = get_connection()
+
+    rows = conn.execute("""
+        SELECT role, content
+        FROM messages
+        WHERE conversation_id = ?
+        ORDER BY id
+    """, (conversation_id,)).fetchall()
+
+    conn.close()
+
+    return [{"role": r[0], "content": r[1]} for r in rows]
+
+
+def save_feedback(message, rating):
+
+    conn = get_connection()
+
+    conn.execute("""
+        INSERT INTO feedback (message, rating, created_at)
+        VALUES (?, ?, ?)
+    """, (message, rating, datetime.now().isoformat()))
+
+    conn.commit()
+    conn.close()
+
+
+# ==========================================
+# 7. PDF PROCESSING
+# ==========================================
+
+def extract_pdf_text(uploaded_file):
+
+    reader = PdfReader(uploaded_file)
+
+    text = ""
+
+    for page in reader.pages:
+        page_text = page.extract_text()
+
+        if page_text:
+            text += page_text + "\n"
+
+    return text
+
+
+def save_document(filename, content):
+
+    conn = get_connection()
+
+    conn.execute("""
+        INSERT INTO documents
+        (filename, content, uploaded_at)
+        VALUES (?, ?, ?)
+    """, (
+        filename,
+        content,
+        datetime.now().isoformat()
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def get_documents():
+
+    conn = get_connection()
+
+    rows = conn.execute("""
+        SELECT id, filename, uploaded_at
+        FROM documents
+        ORDER BY id DESC
+    """).fetchall()
+
+    conn.close()
+
+    return rows
+
+
+def get_document_context():
+
+    conn = get_connection()
+
+    rows = conn.execute("""
+        SELECT filename, content
+        FROM documents
+        ORDER BY id DESC
+    """).fetchall()
+
+    conn.close()
+
+    context = ""
+
+    for filename, content in rows:
+        context += f"\nDocument: {filename}\n"
+        context += content[:12000]
+
+    return context[:30000]
+
+
+# ==========================================
+# 8. AI RESPONSE
+# ==========================================
+
+def generate_ai_response(question, conversation_history):
+
+    if client is None:
+        return T["no_key"]
+
+    document_context = get_document_context()
+
+    if lang == "ar":
+
+        system_prompt = """
+أنت AI Mentor، مساعد ذكي متخصص في التعلم والمعرفة.
+
+قواعدك:
+
+1. أجب بلغة المستخدم نفسها.
+2. افهم اللهجات العربية، بما فيها اللهجة السودانية.
+3. قدم إجابات واضحة ومنظمة وسهلة الفهم.
+4. اشرح المفاهيم الصعبة بأمثلة بسيطة.
+5. لا تخترع معلومات عند عدم التأكد.
+6. إذا كان السؤال متعلقاً بملف مرفوع، استخدم محتواه.
+7. إذا لم تجد الإجابة في الملف، وضح ذلك للمستخدم.
+8. كن ودوداً ومهنياً.
+9. لا تخرج عن دورك كمساعد ذكي للتعلم والمعرفة.
+"""
+
+    else:
+
+        system_prompt = """
+You are AI Mentor, an intelligent learning and knowledge assistant.
+
+Your rules:
+
+1. Reply in the same language used by the user.
+2. Provide clear and well-organized answers.
+3. Explain difficult concepts using simple examples.
+4. Never invent information.
+5. Use uploaded document content when relevant.
+6. If the answer is not available in a document, explain that.
+7. Be friendly and professional.
+8. Focus on learning and knowledge assistance.
+"""
+
+    if document_context:
+
+        system_prompt += f"""
+
+Uploaded knowledge library:
+
+{document_context}
+
+Use this content when it is relevant to the user's question.
+"""
+
+    messages = [
+        {"role": "system", "content": system_prompt}
+    ]
+
+    messages.extend(conversation_history[-12:])
+
+    messages.append({
+        "role": "user",
+        "content": question
+    })
+
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=messages,
+        temperature=0.5,
+        max_tokens=1500
+    )
+
+    return response.choices[0].message.content
+
+
+# ==========================================
+# 9. CUSTOM DESIGN
+# ==========================================
+
+st.markdown("""
+<style>
+
+/* Main background */
+
+.stApp {
+    background:
+        linear-gradient(
+            135deg,
+            #10091F 0%,
+            #1B1033 45%,
+            #241044 100%
+        );
+
+    color: #FFFFFF;
+}
+
+/* Main content */
+
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+}
+
+/* Text */
+
+h1, h2, h3, h4, p, label {
+    color: #FFFFFF !important;
+}
+
+/* Sidebar */
+
+section[data-testid="stSidebar"] {
+    background: #160D29;
+    border-right: 1px solid #55358B;
+}
+
+/* Buttons */
+
+.stButton > button {
+    background: #A855F7 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #C084FC !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    padding: 10px 18px !important;
+    transition: 0.3s ease;
+}
+
+.stButton > button:hover {
+    background: #7E22CE !important;
+    color: #FFFFFF !important;
+    border: 1px solid #E9D5FF !important;
+    transform: translateY(-2px);
+}
+
+/* Inputs */
+
+.stTextInput input,
+.stTextArea textarea {
+    background: #2B1B45 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #9B6BD3 !important;
+    border-radius: 10px !important;
+}
+
+.stTextInput input::placeholder,
+.stTextArea textarea::placeholder {
+    color: #D8C9EB !important;
+}
+
+/* Selectbox */
+
+div[data-baseweb="select"] {
+    background: #2B1B45 !important;
+    border-radius: 10px;
+}
+
+div[data-baseweb="select"] * {
+    color: #FFFFFF !important;
+}
+
+/* Cards */
+
+.mentor-card {
+    background: linear-gradient(
+        135deg,
+        #352052,
+        #25143D
+    );
+
+    border: 1px solid #7045A6;
+    border-radius: 18px;
+    padding: 25px;
+    margin-bottom: 18px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+}
+
+/* Hero */
+
+.hero {
+    background: linear-gradient(
+        120deg,
+        #54258B,
+        #8B45C6,
+        #A855F7
+    );
+
+    padding: 45px 25px;
+    border-radius: 22px;
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+/* Chat messages */
+
+div[data-testid="stChatMessage"] {
+    background: #291B40;
+    border: 1px solid #65438A;
+    border-radius: 15px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+/* File uploader */
+
+div[data-testid="stFileUploader"] {
+    background: #25173A;
+    border: 1px dashed #A855F7;
+    border-radius: 15px;
+    padding: 15px;
+}
+
+/* Success messages */
+
+div[data-testid="stAlert"] {
+    border-radius: 12px;
+}
+
+/* Footer */
+
+.footer {
+    text-align: center;
+    color: #C4B5D9;
+    padding: 25px;
+    margin-top: 35px;
+    border-top: 1px solid #55358B;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# ==========================================
+# 10. SIDEBAR
 # ==========================================
 
 with st.sidebar:
 
     st.markdown(
-        "<h2 style='text-align:center;'>🤖 AI Mentor</h2>",
+        "<h1 style='text-align:center;color:#C084FC;'>🤖 AI Mentor</h1>",
         unsafe_allow_html=True
     )
 
-    st.markdown("---")
-
-    page = st.radio(
-        "القائمة الرئيسية",
-        [
-            "🏠 Home",
-            "💬 AI Assistant",
-            "📚 Knowledge Library",
-            "🎓 Learning Center",
-            "ℹ️ About"
-        ]
+    st.markdown(
+        f"<p style='text-align:center;color:#D8C9EB;'>{T['subtitle']}</p>",
+        unsafe_allow_html=True
     )
 
-    st.markdown("---")
+    st.divider()
 
-    if st.button("➕ محادثة جديدة", use_container_width=True):
+    st.markdown(f"### 🌐 {T['choose_language']}")
 
-        st.session_state.session_id = str(uuid.uuid4())
+    selected_language = st.selectbox(
+        "Language",
+        ["العربية", "English"],
+        index=0 if lang == "ar" else 1,
+        label_visibility="collapsed"
+    )
+
+    new_language = LANGUAGES[selected_language]
+
+    if new_language != lang:
+
+        st.session_state.language = new_language
+        st.rerun()
+
+    st.divider()
+
+    page = st.radio(
+        "Navigation",
+        [
+            T["home"],
+            T["chat"],
+            T["library"],
+            T["history"],
+            T["about"]
+        ],
+        label_visibility="collapsed"
+    )
+
+    st.divider()
+
+    if st.button("➕ " + T["new_chat"], use_container_width=True):
+
+        st.session_state.conversation_id = create_conversation()
         st.session_state.messages = []
+        st.session_state.last_answer = ""
 
         st.rerun()
 
-    st.markdown("---")
-
-    if get_api_key():
-        st.success("AI Service Ready")
-    else:
-        st.warning("API Key غير مضبوط")
-
-
-# ==========================================
-# 10. HOME PAGE
-# ==========================================
-
-if page == "🏠 Home":
-
-    st.markdown("""
-    <div class="hero">
-        <h1>🤖 AI Mentor</h1>
-        <h3>Your Personal Artificial Intelligence Expert</h3>
-        <p>Ask. Learn. Explore. Grow.</p>
-        <p>العربية | English | Arabic Dialects</p>
-    </div>
-    """, unsafe_allow_html=True)
-
     st.markdown(
-        '<div class="section-title">✨ Welcome to AI Mentor</div>',
+        f"<div class='footer'>{T['footer']}</div>",
         unsafe_allow_html=True
     )
 
-    st.write(
-        "مرحباً بك في مرشد الذكاء الاصطناعي. "
-        "منصة تعليمية ذكية تساعدك على فهم واستكشاف عالم AI."
-    )
 
-    col1, col2 = st.columns(2)
+# ==========================================
+# 11. HOME PAGE
+# ==========================================
+
+if page == T["home"]:
+
+    st.markdown(f"""
+    <div class="hero">
+        <h1 style="font-size:42px;">🤖 AI Mentor</h1>
+        <h2>{T['welcome']}</h2>
+        <p style="font-size:18px;">
+            {T['welcome_text']}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-
         st.markdown("""
-        <div class="info-card">
-            <h3>🤖 AI Assistant</h3>
-            <p>اسأل عن الذكاء الاصطناعي واحصل على إجابات ذكية.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="info-card">
-            <h3>📚 Knowledge Library</h3>
-            <p>احفظ معلوماتك وملفاتك للرجوع إليها لاحقاً.</p>
+        <div class="mentor-card">
+            <h2>🧠</h2>
+            <h3>Smart AI</h3>
+            <p>Intelligent answers and explanations.</p>
         </div>
         """, unsafe_allow_html=True)
 
     with col2:
-
         st.markdown("""
-        <div class="info-card">
-            <h3>🎓 Learning Center</h3>
-            <p>تعلم مفاهيم الذكاء الاصطناعي بطريقة مبسطة.</p>
+        <div class="mentor-card">
+            <h2>📚</h2>
+            <h3>Learning</h3>
+            <p>Learn and understand new concepts.</p>
         </div>
         """, unsafe_allow_html=True)
 
+    with col3:
         st.markdown("""
-        <div class="info-card">
-            <h3>🌍 Multilingual Support</h3>
-            <p>تحدث بالعربية والإنجليزية ولهجات عربية مختلفة.</p>
+        <div class="mentor-card">
+            <h2>📄</h2>
+            <h3>PDF Support</h3>
+            <p>Upload documents and ask questions.</p>
         </div>
         """, unsafe_allow_html=True)
 
+    st.write("")
+
+    if st.button("🚀 " + T["start"], use_container_width=True):
+
+        st.session_state.conversation_id = create_conversation()
+        st.session_state.messages = []
+
+        st.rerun()
+
 
 # ==========================================
-# 11. AI ASSISTANT PAGE
+# 12. CHAT PAGE
 # ==========================================
 
-elif page == "💬 AI Assistant":
+elif page == T["chat"]:
 
-    st.markdown("""
-    <div class="hero">
-        <h1>💬 AI Assistant</h1>
-        <h3>Ask anything about Artificial Intelligence</h3>
-        <p>اسأل عن الذكاء الاصطناعي بأي لغة أو لهجة.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.title("💬 " + T["chat_title"])
+
+    st.caption(T["subtitle"])
+
+    if st.session_state.conversation_id is None:
+
+        st.session_state.conversation_id = create_conversation()
 
     if not st.session_state.messages:
 
-        st.markdown("### 💡 Suggested Questions")
-
-        questions = [
-            "What is Artificial Intelligence?",
-            "شنو الفرق بين AI و Machine Learning؟",
-            "Explain Neural Networks simply.",
-            "كيف أبدأ أتعلم الذكاء الاصطناعي؟"
-        ]
-
-        cols = st.columns(2)
-
-        for index, question in enumerate(questions):
-
-            with cols[index % 2]:
-
-                if st.button(question, use_container_width=True):
-                    st.session_state.pending_question = question
-                    st.rerun()
+        st.session_state.messages = load_messages(
+            st.session_state.conversation_id
+        )
 
     for message in st.session_state.messages:
 
@@ -650,278 +762,283 @@ elif page == "💬 AI Assistant":
 
             st.markdown(message["content"])
 
-    user_question = st.chat_input(
-        "اكتب سؤالك هنا... Ask anything about AI"
-    )
+    question = st.chat_input(T["question"])
 
-    if st.session_state.pending_question:
-
-        user_question = st.session_state.pending_question
-
-        st.session_state.pending_question = None
-
-    if user_question:
+    if question:
 
         st.session_state.messages.append({
             "role": "user",
-            "content": user_question
+            "content": question
         })
 
-        save_message("user", user_question)
+        save_message(
+            st.session_state.conversation_id,
+            "user",
+            question
+        )
 
         with st.chat_message("user"):
-            st.markdown(user_question)
+            st.markdown(question)
 
         with st.chat_message("assistant"):
 
-            with st.spinner("AI Mentor is thinking..."):
-
-                answer = get_ai_response(
-                    user_question,
-                    st.session_state.messages[:-1]
-                )
-
-                st.markdown(answer)
-
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": answer
-        })
-
-        save_message("assistant", answer)
-
-        st.rerun()
-
-    if st.session_state.messages:
-
-        st.markdown("---")
-
-        st.markdown("### ⭐ Rate this conversation")
-
-        rating = st.feedback("thumbs")
-
-        if rating is not None:
-
-            if st.button("Submit Feedback"):
-
-                save_feedback(rating)
-
-                st.success("Thank you for your feedback!")
-
-
-# ==========================================
-# 12. KNOWLEDGE LIBRARY
-# ==========================================
-
-elif page == "📚 Knowledge Library":
-
-    st.markdown("""
-    <div class="hero">
-        <h1>📚 Knowledge Library</h1>
-        <h3>Your Personal AI Knowledge Base</h3>
-        <p>احفظ معلوماتك واسترجعها عند الحاجة.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    tab1, tab2 = st.tabs([
-        "➕ Add Knowledge",
-        "📖 Saved Knowledge"
-    ])
-
-    with tab1:
-
-        title = st.text_input(
-            "Knowledge Title"
-        )
-
-        content = st.text_area(
-            "Write your information here",
-            height=180
-        )
-
-        if st.button("💾 Save Knowledge"):
-
-            if title.strip() and content.strip():
-
-                save_knowledge(title, content)
-
-                st.success("تم حفظ المعلومات بنجاح.")
-
-            else:
-
-                st.warning("يرجى إدخال العنوان والمحتوى.")
-
-        st.markdown("---")
-
-        st.markdown("### 📄 Upload PDF")
-
-        uploaded_file = st.file_uploader(
-            "Upload a PDF document",
-            type=["pdf"]
-        )
-
-        if uploaded_file:
-
-            if st.button("Read and Save PDF"):
+            with st.spinner(T["thinking"]):
 
                 try:
 
-                    pdf_text = read_pdf(uploaded_file)
-
-                    if pdf_text.strip():
-
-                        save_knowledge(
-                            uploaded_file.name,
-                            pdf_text[:50000]
-                        )
-
-                        st.success(
-                            "تم استخراج النص وحفظه بنجاح."
-                        )
-
-                    else:
-
-                        st.warning(
-                            "لم يتم العثور على نص قابل للاستخراج في الملف."
-                        )
-
-                except Exception:
-
-                    st.error(
-                        "تعذر قراءة الملف. تأكدي من سلامة ملف PDF."
+                    answer = generate_ai_response(
+                        question,
+                        st.session_state.messages[:-1]
                     )
 
-    with tab2:
+                    st.markdown(answer)
 
-        items = get_knowledge()
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": answer
+                    })
 
-        if not items:
+                    save_message(
+                        st.session_state.conversation_id,
+                        "assistant",
+                        answer
+                    )
 
-            st.info("لا توجد معلومات محفوظة حتى الآن.")
+                    st.session_state.last_answer = answer
 
-        for item in items:
+                except Exception as e:
 
-            with st.expander(item[1]):
+                    st.error(T["error"])
 
-                st.write(item[2][:5000])
+                    st.caption(str(e))
+
+    if st.session_state.last_answer:
+
+        st.divider()
+
+        st.markdown("### ⭐ " + T["feedback"])
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            if st.button("👍 " + T["yes"]):
+
+                save_feedback(
+                    st.session_state.last_answer,
+                    "Positive"
+                )
+
+                st.success(T["saved"])
+
+        with col2:
+
+            if st.button("👎 " + T["no"]):
+
+                save_feedback(
+                    st.session_state.last_answer,
+                    "Negative"
+                )
+
+                st.success(T["saved"])
+
+    if st.button("🗑️ " + T["clear"]):
+
+        st.session_state.conversation_id = create_conversation()
+        st.session_state.messages = []
+        st.session_state.last_answer = ""
+
+        st.rerun()
+
+
+# ==========================================
+# 13. KNOWLEDGE LIBRARY
+# ==========================================
+
+elif page == T["library"]:
+
+    st.title("📚 " + T["library_title"])
+
+    st.write(T["library_text"])
+
+    uploaded_file = st.file_uploader(
+        T["upload"],
+        type=["pdf"]
+    )
+
+    if uploaded_file is not None:
+
+        if st.button("📤 " + T["upload"]):
+
+            try:
+
+                pdf_text = extract_pdf_text(uploaded_file)
+
+                if pdf_text.strip():
+
+                    save_document(
+                        uploaded_file.name,
+                        pdf_text
+                    )
+
+                    st.success(T["upload_success"])
+
+                else:
+
+                    st.warning(T["upload_error"])
+
+            except Exception:
+
+                st.error(T["upload_error"])
+
+    st.divider()
+
+    st.subheader("📁 " + T["library_title"])
+
+    documents = get_documents()
+
+    if documents:
+
+        for doc_id, filename, uploaded_at in documents:
+
+            col1, col2 = st.columns([4, 1])
+
+            with col1:
+
+                st.markdown(
+                    f"📄 **{filename}**"
+                )
+
+                st.caption(uploaded_at[:16])
+
+            with col2:
 
                 if st.button(
-                    "🗑️ Delete",
-                    key=f"delete_{item[0]}"
+                    "🗑️ " + T["delete"],
+                    key=f"delete_{doc_id}"
                 ):
 
-                    delete_knowledge(item[0])
+                    conn = get_connection()
+
+                    conn.execute(
+                        "DELETE FROM documents WHERE id = ?",
+                        (doc_id,)
+                    )
+
+                    conn.commit()
+                    conn.close()
 
                     st.rerun()
 
+    else:
 
-# ==========================================
-# 13. LEARNING CENTER
-# ==========================================
-
-elif page == "🎓 Learning Center":
-
-    st.markdown("""
-    <div class="hero">
-        <h1>🎓 Learning Center</h1>
-        <h3>Explore the World of Artificial Intelligence</h3>
-        <p>ابدأ رحلتك التعليمية في الذكاء الاصطناعي.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    topics = {
-        "🤖 Artificial Intelligence":
-            "Artificial Intelligence is the ability of computer systems to perform tasks that normally require human intelligence.",
-
-        "🧠 Machine Learning":
-            "Machine Learning is a branch of AI that enables computers to learn patterns from data.",
-
-        "🔬 Deep Learning":
-            "Deep Learning uses multi-layer neural networks to learn complex patterns.",
-
-        "🕸️ Neural Networks":
-            "Neural Networks are computational systems inspired by the structure of the human brain.",
-
-        "✨ Generative AI":
-            "Generative AI creates new content such as text, images, audio and code.",
-
-        "💬 Natural Language Processing":
-            "NLP helps computers understand, process and generate human language.",
-
-        "👁️ Computer Vision":
-            "Computer Vision enables machines to interpret and understand visual information."
-    }
-
-    for topic, description in topics.items():
-
-        with st.expander(topic):
-
-            st.write(description)
+        st.info(T["no_docs"])
 
 
 # ==========================================
-# 14. ABOUT PAGE
+# 14. CHAT HISTORY
 # ==========================================
 
-elif page == "ℹ️ About":
+elif page == T["history"]:
 
-    st.markdown("""
-    <div class="hero">
-        <h1>🤖 About AI Mentor</h1>
-        <h3>Your Personal Artificial Intelligence Expert</h3>
-    </div>
-    """, unsafe_allow_html=True)
+    st.title("🕘 " + T["history_title"])
 
-    st.markdown("""
-    <div class="info-card">
-        <h3>🌟 Project Overview</h3>
-        <p>
-        AI Mentor is an intelligent educational assistant
-        specialized in Artificial Intelligence.
-        It helps users explore AI concepts and learn
-        about modern AI technologies.
+    conversations = load_conversations()
+
+    if conversations:
+
+        for conversation_id, title, created_at in conversations:
+
+            with st.expander(
+                f"💬 {title} - {created_at[:16]}"
+            ):
+
+                messages = load_messages(conversation_id)
+
+                if messages:
+
+                    for message in messages:
+
+                        role = (
+                            "👤 User"
+                            if message["role"] == "user"
+                            else "🤖 AI Mentor"
+                        )
+
+                        st.markdown(f"**{role}**")
+
+                        st.write(message["content"])
+
+                if st.button(
+                    "📖 Open Conversation",
+                    key=f"open_{conversation_id}"
+                ):
+
+                    st.session_state.conversation_id = conversation_id
+                    st.session_state.messages = messages
+                    st.session_state.last_answer = next(
+                        (
+                            m["content"]
+                            for m in reversed(messages)
+                            if m["role"] == "assistant"
+                        ),
+                        ""
+                    )
+
+                    st.rerun()
+
+    else:
+
+        st.info(T["no_history"])
+
+
+# ==========================================
+# 15. ABOUT PAGE
+# ==========================================
+
+elif page == T["about"]:
+
+    st.title("ℹ️ " + T["about_title"])
+
+    st.markdown(f"""
+    <div class="mentor-card">
+
+        <h2>🤖 AI Mentor</h2>
+
+        <p style="font-size:18px;">
+            {T['about_text']}
         </p>
-    </div>
 
-    <div class="info-card">
-        <h3>🎯 Project Goal</h3>
-        <p>
-        Making Artificial Intelligence knowledge
-        easier and more accessible to everyone.
-        </p>
-    </div>
+        <hr>
 
-    <div class="info-card">
+        <h3>✨ Main Features</h3>
+
+        <ul>
+            <li>Artificial Intelligence Assistance</li>
+            <li>Arabic and English Support</li>
+            <li>PDF Document Processing</li>
+            <li>Conversation History</li>
+            <li>User Feedback</li>
+        </ul>
+
         <h3>🛠️ Technologies</h3>
-        <p>
-        Python | Streamlit | OpenAI API | SQLite | PyPDF
-        </p>
-    </div>
 
-    <div class="info-card">
-        <h3>👩‍💻 Developer</h3>
-        <p><b>Abeer Alsied</b></p>
+        <p>
+            Python | Streamlit | OpenAI API | SQLite | PyPDF
+        </p>
+
+        <h3>Version 1.2</h3>
+
     </div>
     """, unsafe_allow_html=True)
 
 
 # ==========================================
-# 15. FOOTER
+# 16. FOOTER
 # ==========================================
-
-st.markdown("---")
 
 st.markdown("""
-<div style="
-    text-align:center;
-    padding:20px;
-    color:#cbb7eb;
-">
-    <h4>🤖 AI Mentor</h4>
-    Your Personal Artificial Intelligence Expert
-    <br><br>
-    Made with ❤️ using Python and Artificial Intelligence
-    <br>
-    Version 1.2
+<div class="footer">
+    🤖 AI Mentor | Powered by Artificial Intelligence
 </div>
 """, unsafe_allow_html=True)
