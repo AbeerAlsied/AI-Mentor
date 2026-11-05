@@ -1,14 +1,14 @@
 import os
 import sqlite3
-from datetime import datetime
-
 import streamlit as st
+
+from datetime import datetime
 from openai import OpenAI
 from pypdf import PdfReader
 
 
 # ==========================================
-# 1. PAGE CONFIGURATION
+# 1. CONFIGURATION
 # ==========================================
 
 st.set_page_config(
@@ -18,8 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# قاعدة بيانات جديدة لتجنب تعارض الجداول القديمة
-DB_NAME = os.path.join("/tmp", "ai_mentor_v2.db")
+DB_NAME = "/tmp/ai_mentor_v2.db"
 MODEL_NAME = "gpt-4o-mini"
 
 
@@ -32,91 +31,134 @@ LANGUAGES = {
     "English": "en"
 }
 
-if "language" not in st.session_state:
-    st.session_state.language = "ar"
-
 TEXT = {
     "ar": {
-        "subtitle": "مساعدك الذكي للتعلم والمعرفة",
         "home": "الرئيسية",
         "chat": "المحادثة الذكية",
         "library": "المكتبة المعرفية",
         "history": "سجل المحادثات",
         "about": "عن المنصة",
+
+        "subtitle": "مساعدك الذكي للتعلم والمعرفة",
         "welcome": "مرحباً بك في AI Mentor",
         "welcome_text": "منصتك الذكية للتعلم والإجابة عن الأسئلة وفهم المعلومات.",
+
         "start": "ابدأ المحادثة",
+        "new_chat": "محادثة جديدة",
         "question": "اكتب سؤالك هنا...",
         "clear": "مسح المحادثة",
-        "upload": "ارفع ملف PDF",
+
+        "upload": "رفع ملف PDF",
         "upload_success": "تم رفع الملف بنجاح.",
         "upload_error": "تعذر استخراج النص من الملف.",
-        "no_key": "لم يتم العثور على OpenAI API Key. أضيفيه في Secrets.",
+
+        "no_key": "لم يتم العثور على OpenAI API Key. يرجى إضافته في Secrets.",
         "thinking": "جاري التفكير...",
+        "error": "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.",
+
         "history_title": "المحادثات السابقة",
-        "no_history": "لا توجد محادثات محفوظة.",
+        "no_history": "لا توجد محادثات محفوظة حتى الآن.",
+
         "about_title": "عن AI Mentor",
-        "about_text": "منصة تعليمية ذكية تستخدم الذكاء الاصطناعي لمساعدتك في التعلم وفهم المعلومات.",
+        "about_text": "AI Mentor منصة تعليمية ذكية تستخدم الذكاء الاصطناعي لمساعدة المستخدمين في التعلم وفهم المعلومات والإجابة عن الأسئلة.",
+
         "feedback": "هل كانت الإجابة مفيدة؟",
         "yes": "نعم، مفيدة",
         "no": "تحتاج تحسين",
         "saved": "شكراً لك، تم حفظ تقييمك.",
+
         "library_title": "المكتبة المعرفية",
         "library_text": "ارفعي ملفات PDF ليستفيد المساعد من محتواها.",
         "no_docs": "لم يتم رفع أي ملفات بعد.",
         "delete": "حذف",
-        "new_chat": "محادثة جديدة",
+
         "choose_language": "اختاري اللغة",
-        "error": "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.",
-        "db_error": "حدث خطأ أثناء التعامل مع قاعدة البيانات.",
-        "general": "المعرفة العامة",
-        "document": "الملفات المرفوعة"
+        "db_error": "حدث خطأ في قاعدة البيانات.",
+        "open": "فتح المحادثة",
+        "features": "المميزات الرئيسية",
+        "technologies": "التقنيات المستخدمة",
+        "footer": "AI Mentor | مساعدك الذكي للتعلم"
     },
 
     "en": {
-        "subtitle": "Your Intelligent Learning Assistant",
         "home": "Home",
         "chat": "AI Chat",
         "library": "Knowledge Library",
         "history": "Chat History",
         "about": "About",
+
+        "subtitle": "Your Intelligent Learning Assistant",
         "welcome": "Welcome to AI Mentor",
         "welcome_text": "Your intelligent platform for learning and discovering information.",
+
         "start": "Start Chatting",
+        "new_chat": "New Chat",
         "question": "Type your question here...",
         "clear": "Clear Chat",
+
         "upload": "Upload PDF",
         "upload_success": "File uploaded successfully.",
         "upload_error": "Could not extract text from the file.",
+
         "no_key": "OpenAI API Key not found. Add it to Secrets.",
         "thinking": "Thinking...",
+        "error": "An error occurred while connecting to AI.",
+
         "history_title": "Previous Conversations",
-        "no_history": "No saved conversations.",
+        "no_history": "No saved conversations yet.",
+
         "about_title": "About AI Mentor",
-        "about_text": "An intelligent educational platform powered by artificial intelligence.",
+        "about_text": "AI Mentor is an intelligent educational platform powered by artificial intelligence.",
+
         "feedback": "Was this answer helpful?",
         "yes": "Yes, Helpful",
         "no": "Needs Improvement",
         "saved": "Thank you! Your feedback was saved.",
+
         "library_title": "Knowledge Library",
         "library_text": "Upload PDF files to help the assistant use their content.",
         "no_docs": "No files uploaded yet.",
         "delete": "Delete",
-        "new_chat": "New Chat",
+
         "choose_language": "Choose Language",
-        "error": "An error occurred while connecting to AI.",
         "db_error": "A database error occurred.",
-        "general": "General Knowledge",
-        "document": "Uploaded Documents"
+        "open": "Open Conversation",
+        "features": "Main Features",
+        "technologies": "Technologies",
+        "footer": "AI Mentor | Your Intelligent Learning Assistant"
     }
 }
 
-T = TEXT[st.session_state.language]
+
+# ==========================================
+# 3. SESSION STATE
+# ==========================================
+
+if "language" not in st.session_state:
+    st.session_state.language = "ar"
+
+if "navigation" not in st.session_state:
+    st.session_state.navigation = TEXT["ar"]["home"]
+
+if "conversation_id" not in st.session_state:
+    st.session_state.conversation_id = None
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "last_answer" not in st.session_state:
+    st.session_state.last_answer = ""
+
+if "feedback_given" not in st.session_state:
+    st.session_state.feedback_given = False
+
+
 lang = st.session_state.language
+T = TEXT[lang]
 
 
 # ==========================================
-# 3. DATABASE CONNECTION
+# 4. DATABASE
 # ==========================================
 
 def get_connection():
@@ -173,16 +215,18 @@ def initialize_database():
 
 
 try:
+
     initialize_database()
 
 except sqlite3.Error as e:
+
     st.error(T["db_error"])
     st.exception(e)
     st.stop()
 
 
 # ==========================================
-# 4. DATABASE FUNCTIONS
+# 5. DATABASE OPERATIONS
 # ==========================================
 
 def create_conversation():
@@ -190,7 +234,8 @@ def create_conversation():
     with get_connection() as conn:
 
         cursor = conn.execute("""
-            INSERT INTO conversations (title, created_at)
+            INSERT INTO conversations
+            (title, created_at)
             VALUES (?, ?)
         """, (
             "New Conversation",
@@ -239,7 +284,10 @@ def load_messages(conversation_id):
         """, (conversation_id,)).fetchall()
 
     return [
-        {"role": row[0], "content": row[1]}
+        {
+            "role": row[0],
+            "content": row[1]
+        }
         for row in rows
     ]
 
@@ -260,12 +308,47 @@ def save_feedback(message, rating):
 
 
 # ==========================================
-# 5. OPENAI CONNECTION
+# 6. CONVERSATION MANAGEMENT
+# ==========================================
+
+def start_new_chat():
+
+    conversation_id = create_conversation()
+
+    st.session_state.conversation_id = conversation_id
+    st.session_state.messages = []
+    st.session_state.last_answer = ""
+    st.session_state.feedback_given = False
+
+
+def open_conversation(conversation_id):
+
+    messages = load_messages(conversation_id)
+
+    st.session_state.conversation_id = conversation_id
+    st.session_state.messages = messages
+
+    st.session_state.last_answer = next(
+        (
+            message["content"]
+            for message in reversed(messages)
+            if message["role"] == "assistant"
+        ),
+        ""
+    )
+
+    st.session_state.feedback_given = False
+    st.session_state.navigation = T["chat"]
+
+
+# ==========================================
+# 7. OPENAI API
 # ==========================================
 
 def get_api_key():
 
     try:
+
         key = st.secrets.get("OPENAI_API_KEY", "")
 
         if key:
@@ -279,42 +362,19 @@ def get_api_key():
 
 def get_client():
 
-    key = get_api_key()
+    api_key = get_api_key()
 
-    if not key:
+    if not api_key:
         return None
 
-    return OpenAI(api_key=key)
+    return OpenAI(api_key=api_key)
 
 
 client = get_client()
 
 
 # ==========================================
-# 6. SESSION STATE
-# ==========================================
-
-if "conversation_id" not in st.session_state:
-    st.session_state.conversation_id = None
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "last_answer" not in st.session_state:
-    st.session_state.last_answer = ""
-
-
-def start_new_chat():
-
-    conversation_id = create_conversation()
-
-    st.session_state.conversation_id = conversation_id
-    st.session_state.messages = []
-    st.session_state.last_answer = ""
-
-
-# ==========================================
-# 7. PDF PROCESSING
+# 8. PDF PROCESSING
 # ==========================================
 
 def extract_pdf_text(uploaded_file):
@@ -390,7 +450,7 @@ def delete_document(doc_id):
 
 
 # ==========================================
-# 8. AI RESPONSE
+# 9. AI RESPONSE
 # ==========================================
 
 def generate_ai_response(question, conversation_history):
@@ -405,16 +465,17 @@ def generate_ai_response(question, conversation_history):
         system_prompt = """
 أنت AI Mentor، مساعد ذكي متخصص في التعلم والمعرفة.
 
-قواعدك:
+التعليمات:
 
 1. أجب بلغة المستخدم نفسها.
-2. افهم اللهجات العربية، بما فيها اللهجة السودانية.
-3. قدم إجابات واضحة ومنظمة وسهلة الفهم.
+2. افهم اللهجات العربية بما فيها السودانية.
+3. قدم إجابات واضحة ومنظمة.
 4. اشرح المفاهيم الصعبة بأمثلة بسيطة.
 5. لا تخترع معلومات.
 6. استخدم الملفات المرفوعة عندما يكون السؤال متعلقاً بها.
 7. وضح للمستخدم إذا لم تجد الإجابة في الملف.
 8. كن ودوداً ومهنياً.
+9. ساعد المستخدم على التعلم والفهم.
 """
 
     else:
@@ -422,13 +483,15 @@ def generate_ai_response(question, conversation_history):
         system_prompt = """
 You are AI Mentor, an intelligent learning assistant.
 
-Rules:
+Instructions:
+
 1. Reply in the user's language.
 2. Provide clear and organized answers.
-3. Explain difficult concepts with simple examples.
+3. Explain difficult concepts using simple examples.
 4. Never invent information.
 5. Use uploaded documents when relevant.
-6. Be friendly and professional.
+6. Explain when information is unavailable.
+7. Be friendly and professional.
 """
 
     if document_context:
@@ -439,11 +502,14 @@ Uploaded documents:
 
 {document_context}
 
-Use these documents when relevant to the question.
+Use these documents when relevant.
 """
 
     messages = [
-        {"role": "system", "content": system_prompt}
+        {
+            "role": "system",
+            "content": system_prompt
+        }
     ]
 
     messages.extend(conversation_history[-12:])
@@ -464,13 +530,14 @@ Use these documents when relevant to the question.
 
 
 # ==========================================
-# 9. CUSTOM DESIGN
+# 10. DESIGN AND COLORS
 # ==========================================
 
 st.markdown("""
 <style>
 
 .stApp {
+
     background: linear-gradient(
         135deg,
         #10091F,
@@ -482,66 +549,96 @@ st.markdown("""
 }
 
 .block-container {
+
     padding-top: 2rem;
     padding-bottom: 3rem;
 }
 
 h1, h2, h3, h4, p, label {
+
     color: #FFFFFF !important;
 }
 
 section[data-testid="stSidebar"] {
+
     background: #160D29;
     border-right: 1px solid #7045A6;
 }
 
-/* Buttons */
+/* BUTTONS */
 
 .stButton > button {
+
     background-color: #A855F7 !important;
+
     color: #FFFFFF !important;
+
     border: 2px solid #C084FC !important;
+
     border-radius: 12px !important;
-    font-weight: bold !important;
+
+    font-weight: 700 !important;
+
     padding: 10px 18px !important;
+
+    transition: 0.3s ease;
 }
 
 .stButton > button:hover {
+
     background-color: #7E22CE !important;
-    color: white !important;
+
+    color: #FFFFFF !important;
+
     border-color: #E9D5FF !important;
 }
 
-/* Chat input */
+/* CHAT INPUT */
 
 .stChatInput textarea {
+
     background: #2B1B45 !important;
+
     color: white !important;
 }
 
-/* Text fields */
+/* TEXT INPUT */
 
 .stTextInput input,
 .stTextArea textarea {
+
     background: #2B1B45 !important;
+
     color: white !important;
+
     border: 1px solid #A855F7 !important;
+
     border-radius: 10px !important;
 }
 
-/* Select box */
+/* SELECTBOX */
 
 div[data-baseweb="select"] {
+
     background: #2B1B45 !important;
 }
 
 div[data-baseweb="select"] * {
+
     color: white !important;
 }
 
-/* Cards */
+/* RADIO */
+
+.stRadio label {
+
+    color: white !important;
+}
+
+/* CARDS */
 
 .mentor-card {
+
     background: linear-gradient(
         135deg,
         #352052,
@@ -549,14 +646,20 @@ div[data-baseweb="select"] * {
     );
 
     border: 1px solid #8755B8;
+
     border-radius: 18px;
+
     padding: 25px;
+
     margin-bottom: 18px;
+
+    min-height: 180px;
 }
 
-/* Hero */
+/* HERO */
 
 .hero {
+
     background: linear-gradient(
         120deg,
         #54258B,
@@ -565,35 +668,55 @@ div[data-baseweb="select"] * {
     );
 
     padding: 45px 25px;
+
     border-radius: 22px;
+
     text-align: center;
+
     margin-bottom: 25px;
 }
 
-/* Chat */
+/* CHAT MESSAGES */
 
 div[data-testid="stChatMessage"] {
+
     background: #291B40;
+
     border: 1px solid #65438A;
+
     border-radius: 15px;
+
     padding: 12px;
+
     margin-bottom: 12px;
 }
 
-/* Footer */
+/* UPLOADER */
 
-.footer {
-    text-align: center;
-    color: #D8C9EB;
-    padding: 20px;
-    margin-top: 30px;
-    border-top: 1px solid #55358B;
+div[data-testid="stFileUploader"] {
+
+    background: #25173A;
+
+    border: 1px dashed #A855F7;
+
+    border-radius: 15px;
+
+    padding: 15px;
 }
 
-/* Radio buttons */
+/* FOOTER */
 
-.stRadio label {
-    color: white !important;
+.footer {
+
+    text-align: center;
+
+    color: #D8C9EB;
+
+    padding: 20px;
+
+    margin-top: 30px;
+
+    border-top: 1px solid #55358B;
 }
 
 </style>
@@ -601,7 +724,7 @@ div[data-testid="stChatMessage"] {
 
 
 # ==========================================
-# 10. SIDEBAR
+# 11. SIDEBAR AND NAVIGATION
 # ==========================================
 
 with st.sidebar:
@@ -625,25 +748,40 @@ with st.sidebar:
         "Language",
         ["العربية", "English"],
         index=0 if lang == "ar" else 1,
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        key="language_selector"
     )
 
-    if LANGUAGES[selected_language] != lang:
+    new_language = LANGUAGES[selected_language]
 
-        st.session_state.language = LANGUAGES[selected_language]
+    if new_language != lang:
+
+        st.session_state.language = new_language
+
+        st.session_state.navigation = TEXT[new_language]["home"]
+
         st.rerun()
 
     st.divider()
 
+    pages = [
+        T["home"],
+        T["chat"],
+        T["library"],
+        T["history"],
+        T["about"]
+    ]
+
+    # حماية قيمة التنقل عند تغيير اللغة
+
+    if st.session_state.navigation not in pages:
+
+        st.session_state.navigation = T["home"]
+
     page = st.radio(
         "Navigation",
-        [
-            T["home"],
-            T["chat"],
-            T["library"],
-            T["history"],
-            T["about"]
-        ],
+        pages,
+        key="navigation",
         label_visibility="collapsed"
     )
 
@@ -655,28 +793,45 @@ with st.sidebar:
     ):
 
         try:
+
             start_new_chat()
-            st.session_state.current_page = T["chat"]
+
+            st.session_state.navigation = T["chat"]
+
             st.rerun()
 
         except sqlite3.Error as e:
+
             st.error(T["db_error"])
             st.exception(e)
 
+    st.markdown(
+        f"<div class='footer'>{T['footer']}</div>",
+        unsafe_allow_html=True
+    )
+
 
 # ==========================================
-# 11. HOME PAGE
+# 12. HOME PAGE
 # ==========================================
 
 if page == T["home"]:
 
     st.markdown(f"""
     <div class="hero">
-        <h1 style="font-size:42px;">🤖 AI Mentor</h1>
-        <h2>{T['welcome']}</h2>
+
+        <h1 style="font-size:42px;">
+            🤖 AI Mentor
+        </h1>
+
+        <h2>
+            {T['welcome']}
+        </h2>
+
         <p style="font-size:18px;">
             {T['welcome_text']}
         </p>
+
     </div>
     """, unsafe_allow_html=True)
 
@@ -686,9 +841,15 @@ if page == T["home"]:
 
         st.markdown("""
         <div class="mentor-card">
+
             <h2>🧠</h2>
+
             <h3>Smart AI</h3>
-            <p>Intelligent answers and explanations.</p>
+
+            <p>
+                Intelligent answers and explanations.
+            </p>
+
         </div>
         """, unsafe_allow_html=True)
 
@@ -696,9 +857,15 @@ if page == T["home"]:
 
         st.markdown("""
         <div class="mentor-card">
+
             <h2>📚</h2>
+
             <h3>Learning</h3>
-            <p>Learn and understand new concepts.</p>
+
+            <p>
+                Learn and understand new concepts.
+            </p>
+
         </div>
         """, unsafe_allow_html=True)
 
@@ -706,11 +873,19 @@ if page == T["home"]:
 
         st.markdown("""
         <div class="mentor-card">
+
             <h2>📄</h2>
+
             <h3>PDF Support</h3>
-            <p>Upload documents and ask questions.</p>
+
+            <p>
+                Upload documents and ask questions.
+            </p>
+
         </div>
         """, unsafe_allow_html=True)
+
+    st.write("")
 
     if st.button(
         "🚀 " + T["start"],
@@ -721,7 +896,9 @@ if page == T["home"]:
 
             start_new_chat()
 
-            st.session_state.current_page = T["chat"]
+            # الانتقال الفعلي إلى صفحة المحادثة
+
+            st.session_state.navigation = T["chat"]
 
             st.rerun()
 
@@ -732,7 +909,7 @@ if page == T["home"]:
 
 
 # ==========================================
-# 12. CHAT PAGE
+# 13. CHAT PAGE
 # ==========================================
 
 elif page == T["chat"]:
@@ -753,16 +930,22 @@ elif page == T["chat"]:
             st.exception(e)
             st.stop()
 
+    # عرض المحادثة السابقة
+
     for message in st.session_state.messages:
 
         with st.chat_message(message["role"]):
+
             st.markdown(message["content"])
+
+    # إدخال السؤال
 
     question = st.chat_input(T["question"])
 
     if question:
 
         with st.chat_message("user"):
+
             st.markdown(question)
 
         try:
@@ -802,10 +985,15 @@ elif page == T["chat"]:
 
             st.session_state.last_answer = answer
 
+            st.session_state.feedback_given = False
+
         except Exception as e:
 
             st.error(T["error"])
+
             st.caption(str(e))
+
+    # تقييم الإجابة
 
     if st.session_state.last_answer:
 
@@ -813,49 +1001,62 @@ elif page == T["chat"]:
 
         st.markdown("### ⭐ " + T["feedback"])
 
-        col1, col2 = st.columns(2)
+        if not st.session_state.feedback_given:
 
-        with col1:
+            col1, col2 = st.columns(2)
 
-            if st.button("👍 " + T["yes"]):
+            with col1:
 
-                try:
+                if st.button("👍 " + T["yes"]):
 
-                    save_feedback(
-                        st.session_state.last_answer,
-                        "Positive"
-                    )
+                    try:
 
-                    st.success(T["saved"])
+                        save_feedback(
+                            st.session_state.last_answer,
+                            "Positive"
+                        )
 
-                except sqlite3.Error as e:
+                        st.session_state.feedback_given = True
 
-                    st.error(T["db_error"])
-                    st.exception(e)
+                        st.success(T["saved"])
 
-        with col2:
+                    except sqlite3.Error as e:
 
-            if st.button("👎 " + T["no"]):
+                        st.error(T["db_error"])
+                        st.exception(e)
 
-                try:
+            with col2:
 
-                    save_feedback(
-                        st.session_state.last_answer,
-                        "Negative"
-                    )
+                if st.button("👎 " + T["no"]):
 
-                    st.success(T["saved"])
+                    try:
 
-                except sqlite3.Error as e:
+                        save_feedback(
+                            st.session_state.last_answer,
+                            "Negative"
+                        )
 
-                    st.error(T["db_error"])
-                    st.exception(e)
+                        st.session_state.feedback_given = True
+
+                        st.success(T["saved"])
+
+                    except sqlite3.Error as e:
+
+                        st.error(T["db_error"])
+                        st.exception(e)
+
+        else:
+
+            st.success(T["saved"])
+
+    # مسح المحادثة
 
     if st.button("🗑️ " + T["clear"]):
 
         try:
 
             start_new_chat()
+
             st.rerun()
 
         except sqlite3.Error as e:
@@ -865,7 +1066,7 @@ elif page == T["chat"]:
 
 
 # ==========================================
-# 13. KNOWLEDGE LIBRARY
+# 14. KNOWLEDGE LIBRARY
 # ==========================================
 
 elif page == T["library"]:
@@ -907,6 +1108,8 @@ elif page == T["library"]:
 
     st.divider()
 
+    st.subheader("📁 " + T["library_title"])
+
     documents = get_documents()
 
     if documents:
@@ -918,6 +1121,7 @@ elif page == T["library"]:
             with col1:
 
                 st.markdown(f"📄 **{filename}**")
+
                 st.caption(uploaded_at[:16])
 
             with col2:
@@ -928,6 +1132,7 @@ elif page == T["library"]:
                 ):
 
                     delete_document(doc_id)
+
                     st.rerun()
 
     else:
@@ -936,7 +1141,7 @@ elif page == T["library"]:
 
 
 # ==========================================
-# 14. CHAT HISTORY
+# 15. CHAT HISTORY
 # ==========================================
 
 elif page == T["history"]:
@@ -955,35 +1160,27 @@ elif page == T["history"]:
 
                 messages = load_messages(conversation_id)
 
-                for message in messages:
+                if messages:
 
-                    role = (
-                        "👤 User"
-                        if message["role"] == "user"
-                        else "🤖 AI Mentor"
-                    )
+                    for message in messages:
 
-                    st.markdown(f"**{role}**")
-                    st.write(message["content"])
+                        role = (
+                            "👤 User"
+                            if message["role"] == "user"
+                            else "🤖 AI Mentor"
+                        )
+
+                        st.markdown(f"**{role}**")
+
+                        st.write(message["content"])
 
                 if st.button(
-                    "📖 Open Conversation",
+                    "📖 " + T["open"],
                     key=f"open_{conversation_id}"
                 ):
 
-                    st.session_state.conversation_id = conversation_id
-                    st.session_state.messages = messages
+                    open_conversation(conversation_id)
 
-                    st.session_state.last_answer = next(
-                        (
-                            m["content"]
-                            for m in reversed(messages)
-                            if m["role"] == "assistant"
-                        ),
-                        ""
-                    )
-
-                    st.session_state.current_page = T["chat"]
                     st.rerun()
 
     else:
@@ -992,7 +1189,7 @@ elif page == T["history"]:
 
 
 # ==========================================
-# 15. ABOUT PAGE
+# 16. ABOUT PAGE
 # ==========================================
 
 elif page == T["about"]:
@@ -1010,7 +1207,7 @@ elif page == T["about"]:
 
         <hr>
 
-        <h3>✨ Main Features</h3>
+        <h3>✨ {T['features']}</h3>
 
         <ul>
             <li>Artificial Intelligence Assistance</li>
@@ -1020,24 +1217,30 @@ elif page == T["about"]:
             <li>User Feedback</li>
         </ul>
 
-        <h3>🛠️ Technologies</h3>
+        <h3>🛠️ {T['technologies']}</h3>
 
         <p>
             Python | Streamlit | OpenAI API | SQLite | PyPDF
         </p>
 
-        <h3>Version 2.0</h3>
+        <h3>Version 2.1</h3>
 
     </div>
     """, unsafe_allow_html=True)
 
 
 # ==========================================
-# 16. FOOTER
+# 17. FOOTER
 # ==========================================
 
 st.markdown("""
 <div class="footer">
-    🤖 AI Mentor | Powered by Artificial Intelligence
+
+    🤖 AI Mentor
+
+    <br>
+
+    Powered by Artificial Intelligence
+
 </div>
 """, unsafe_allow_html=True) 
