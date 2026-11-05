@@ -1,24 +1,44 @@
-# AI Mentor 🤖
+<h1 align="center">🤖 AI Mentor</h1>
 
-### Your Personal Artificial Intelligence Expert
+<h3 align="center">
+Your Personal Artificial Intelligence Expert
+</h3>
+
+<p align="center">
+Ask. Learn. Explore. Grow.
+</p>
+
+<p align="center">
+العربية | English | Arabic Dialects
+</p>
+
+---
+
+## 🌟 About AI Mentor
 
 AI Mentor is an intelligent assistant specialized in Artificial Intelligence.
 
-## Features
+It helps users understand AI concepts, explore modern technologies, learn programming, and discover how Artificial Intelligence works.
 
-- AI-powered conversations
-- Arabic and English support
-- Sudanese Arabic dialect understanding
-- Colloquial Arabic understanding
-- Machine Learning explanations
-- Deep Learning assistance
-- Python AI programming
-- Personal Knowledge Library
-- PDF document reading
-- Knowledge retrieval
-- Conversation history
+The assistant supports Arabic, English, and different Arabic dialects, including Sudanese Arabic.
 
-## Technologies
+## ✨ Features
+
+- 🤖 AI-powered conversations
+- 🌍 Arabic and English support
+- 🗣️ Sudanese Arabic dialect understanding
+- 💬 Understanding different Arabic dialects
+- 🧠 Machine Learning explanations
+- 🔬 Deep Learning assistance
+- 🕸️ Neural Networks concepts
+- ✨ Generative AI explanations
+- 🐍 Python for AI programming
+- 📚 Personal Knowledge Library
+- 📄 PDF document reading
+- 🔎 Knowledge retrieval
+- 💾 Conversation history
+
+## 🛠️ Technologies
 
 - Python
 - Streamlit
@@ -26,24 +46,9 @@ AI Mentor is an intelligent assistant specialized in Artificial Intelligence.
 - SQLite
 - PyPDF
 
-## Installation
+## 🚀 Installation
 
-pip install -r requirements.txt
+Clone the repository:
 
-## Run
-
-streamlit run app.py
-
-## API Configuration
-
-Add your OpenAI API key to Streamlit Secrets:
-
-OPENAI_API_KEY = "your_api_key"
-
-## Developer
-
-Abeer Alsied
-
-## Version
-
-1.1
+```bash
+git clone https://github.com/YOUR-USERNAME/AI-Mentor.git
